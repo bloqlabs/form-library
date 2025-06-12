@@ -51,18 +51,72 @@ Transform any form into a step-by-step wizard with automatic navigation.
 Create three button elements and add these attributes:
 
 **Back Button:**
+
 - **Add to Button or Div containing button**: `data-bl-form-element` **Value**: `back`
 
 **Next Button:**
+
 - **Add to Button or Div containing button**: `data-bl-form-element` **Value**: `next`
 
 **Submit Button:**
+
 - **Add to Button or Div containing button**: `data-bl-form-element` **Value**: `submit`
 
 #### How Navigation Works
+
 - **Back button**: Automatically hidden on first step
 - **Next button**: Hidden on last step, disabled if validation fails
 - **Submit button**: Only appears on last step, disabled if validation fails
+
+#### Validation Modes
+
+**Strict Mode (Default):**
+
+- Buttons are disabled when current step has validation errors
+- Users must fix errors before proceeding
+- No error messages shown - buttons simply won't work
+
+**Permissive Mode:**
+
+- Buttons are never disabled - users can always click
+- When validation fails, error messages appear inline
+- Better for forms where users want to see all steps first
+
+**To enable Permissive Mode:**
+
+1. **Select your Form element**
+2. **Add attribute**: `data-bl-validation-mode` **Value**: `permissive`
+
+```html
+<!-- Example: Permissive validation with custom error styling -->
+<form
+	data-bl-form-element="multistep"
+	data-bl-validation-mode="permissive"
+	data-bl-error-class="my-custom-error"></form>
+```
+
+#### Error Messages in Permissive Mode
+
+**Automatic Error Containers:**
+The library creates error messages automatically, or you can create dedicated containers:
+
+```html
+<div class="field-wrapper">
+	<input name="email" type="email" required />
+	<div data-bl-error-for="email" class="error-message"></div>
+</div>
+```
+
+**Custom Error Messages:**
+Override default messages per field:
+
+```html
+<input
+	name="email"
+	type="email"
+	required
+	data-bl-error-message="Please enter your email address" />
+```
 
 ### 2. Step Indicators
 
@@ -80,10 +134,12 @@ Visual progress indicators that automatically match your form steps.
 #### Indicator Types
 
 **Progress Indicator** (`step-indicator`):
+
 - Shows all completed steps as active
 - Perfect for progress bars
 
 **Current Only** (`step-indicator-single`):
+
 - Only highlights the current step
 - Great for "Step X of Y" displays
 
@@ -93,15 +149,15 @@ Add a class to your step indicator elements and style the `.active-step` state:
 
 ```css
 .my-step-dot {
-  width: 20px;
-  height: 20px;
-  background: #ddd;
-  border-radius: 50%;
-  transition: background 0.3s ease;
+	width: 20px;
+	height: 20px;
+	background: #ddd;
+	border-radius: 50%;
+	transition: background 0.3s ease;
 }
 
 .my-step-dot.active-step {
-  background: #007bff;
+	background: #007bff;
 }
 ```
 
@@ -119,25 +175,27 @@ Show or hide any element based on form inputs.
 #### Advanced Conditions
 
 **Use different operators** by adding:
+
 - `data-bl-condition-operator` **Value**: `operator_name`
 
 **Multiple conditions** (all must be true):
+
 - `data-bl-condition-field-2` **Value**: `second_field_name`
 - `data-bl-condition-value-2` **Value**: `second_value`
 - Continue with `-3`, `-4`, etc. for more conditions
 
 #### Available Operators
 
-| Operator | When to Use | Example Value |
-|:---------|:------------|:---------------|
-| `equals` | Exact match (default) | `yes` |
-| `not-equals` | Doesn't match | `no` |
-| `contains` | Contains text | `john` (matches "John Doe") |
-| `greater-than` | Number comparison | `18` |
-| `less-than` | Number comparison | `65` |
-| `empty` | Field is empty | (leave value empty) |
-| `not-empty` | Field has any value | (leave value empty) |
-| `includes` | Any of multiple values | `red,blue,green` |
+| Operator       | When to Use            | Example Value               |
+| :------------- | :--------------------- | :-------------------------- |
+| `equals`       | Exact match (default)  | `yes`                       |
+| `not-equals`   | Doesn't match          | `no`                        |
+| `contains`     | Contains text          | `john` (matches "John Doe") |
+| `greater-than` | Number comparison      | `18`                        |
+| `less-than`    | Number comparison      | `65`                        |
+| `empty`        | Field is empty         | (leave value empty)         |
+| `not-empty`    | Field has any value    | (leave value empty)         |
+| `includes`     | Any of multiple values | `red,blue,green`            |
 
 ### 4. Form Validation
 
@@ -146,6 +204,7 @@ Built-in validation using Webflow's native form settings.
 #### Automatic Validation
 
 The library automatically validates:
+
 - **Required fields** (set in Webflow field settings)
 - **Email fields** (Email input type)
 - **Phone fields** (Phone input type)
@@ -163,6 +222,96 @@ The library automatically validates:
 
 **The library handles the rest automatically!**
 
+### 5. Multi-Language Support
+
+Perfect for international websites - the library automatically detects your visitor's language and shows error messages in their native language.
+
+#### Supported Languages (Built-in)
+
+- **English** (en) - Default
+- **Spanish** (es) - Español
+- **French** (fr) - Français
+- **Italian** (it) - Italiano
+- **German** (de) - Deutsch
+
+#### Automatic Language Detection
+
+The library automatically detects language in this order:
+
+1. **Form attribute** `data-bl-language` (highest priority)
+2. **HTML lang attribute** on your page
+3. **Browser language** setting
+4. **English fallback**
+
+#### Setting Your Language
+
+**Option 1: Set on Form (Recommended)**
+
+```html
+<form
+	data-bl-form-element="multistep"
+	data-bl-validation-mode="permissive"
+	data-bl-language="es"></form>
+```
+
+**Option 2: Set on HTML element**
+
+```html
+<html lang="es"></html>
+```
+
+#### Custom Error Messages
+
+**Single Language:**
+
+```html
+<input
+	name="email"
+	type="email"
+	required
+	data-bl-error-message="Tu email es requerido" />
+```
+
+**Multiple Languages:**
+
+```html
+<input
+	name="email"
+	type="email"
+	required
+	data-bl-error-message-en="Email is required"
+	data-bl-error-message-es="El email es requerido"
+	data-bl-error-message-fr="L'email est requis" />
+```
+
+#### Webflow CMS Integration
+
+For dynamic multi-language sites using Webflow CMS:
+
+```html
+<!-- Use CMS fields for language and translations -->
+<form
+	data-bl-form-element="multistep"
+	data-bl-language='{{wf {"path":"language-code"} }}'
+	data-bl-validation-mode="permissive">
+	<input
+		name="email"
+		data-bl-error-message='{{wf {"path":"email-error-text"} }}' />
+</form>
+```
+
+#### Built-in Error Messages
+
+The library includes professional translations for all validation errors:
+
+| Error Type | English                             | Spanish                      | French                             |
+| :--------- | :---------------------------------- | :--------------------------- | :--------------------------------- |
+| Required   | "This field is required"            | "Este campo es obligatorio"  | "Ce champ est obligatoire"         |
+| Email      | "Please enter a valid email"        | "Ingrese un email válido"    | "Veuillez saisir un email valide"  |
+| Phone      | "Please enter a valid phone number" | "Ingrese un teléfono válido" | "Veuillez saisir un numéro valide" |
+
+_All 5 languages have complete translation sets for every error type._
+
 ---
 
 ## 🔧 API Reference
@@ -172,11 +321,15 @@ The library automatically validates:
 ```javascript
 // Optional: Custom configuration in Footer Code (after the main script)
 window.bl = new BL({
-  hiddenClass: 'bl-hidden',        // CSS class for hidden fields
-  animationDuration: 300,          // Animation speed in milliseconds
-  clearHiddenValues: true,         // Clear values when fields are hidden
-  validateOnInput: true,           // Real-time validation
-  debug: false                     // Enable console logging
+	hiddenClass: 'bl-hidden', // CSS class for hidden fields
+	animationDuration: 300, // Animation speed in milliseconds
+	clearHiddenValues: true, // Clear values when fields are hidden
+	validateOnInput: true, // Real-time validation
+	validationMode: 'strict', // 'strict' or 'permissive'
+	showInlineErrors: true, // Show error messages (permissive mode)
+	errorMessageClass: 'bl-error-message', // CSS class for error messages
+	fieldErrorClass: 'bl-field-error', // CSS class for invalid fields
+	debug: false, // Enable console logging
 });
 ```
 
@@ -201,6 +354,22 @@ const allValid = bl.validateAllSteps();
 bl.refresh();
 ```
 
+#### Translation Methods
+
+```javascript
+// Add custom translations for a language
+bl.addTranslation('pt', {
+	required: 'Este campo é obrigatório',
+	email: 'Digite um email válido',
+});
+
+// Change language programmatically
+bl.setLanguage('fr');
+
+// Get current language
+const currentLang = bl.getLanguage();
+```
+
 #### Utility Methods
 
 ```javascript
@@ -218,22 +387,23 @@ Listen for events in your custom code:
 
 ```javascript
 // When user changes steps
-document.addEventListener('bl:step:changed', function(e) {
-  console.log('Now on step:', e.detail.currentStep + 1);
-  console.log('Total steps:', e.detail.totalSteps);
+document.addEventListener('bl:step:changed', function (e) {
+	console.log('Now on step:', e.detail.currentStep + 1);
+	console.log('Total steps:', e.detail.totalSteps);
 
-  // Example: Update a custom step counter
-  document.querySelector('.step-counter').textContent = 
-    `Step ${e.detail.currentStep + 1} of ${e.detail.totalSteps}`;
+	// Example: Update a custom step counter
+	document.querySelector('.step-counter').textContent = `Step ${
+		e.detail.currentStep + 1
+	} of ${e.detail.totalSteps}`;
 });
 
 // When conditional fields show/hide
-document.addEventListener('bl:field:shown', function(e) {
-  console.log('Field shown:', e.detail.element);
+document.addEventListener('bl:field:shown', function (e) {
+	console.log('Field shown:', e.detail.element);
 });
 
-document.addEventListener('bl:field:hidden', function(e) {
-  console.log('Field hidden:', e.detail.element);
+document.addEventListener('bl:field:hidden', function (e) {
+	console.log('Field hidden:', e.detail.element);
 });
 ```
 
@@ -244,13 +414,16 @@ document.addEventListener('bl:field:hidden', function(e) {
 ### Multi-Step Contact Form
 
 **Form Setup:**
+
 1. **Form element**: Add attribute `data-bl-form-element="multistep"`
 
 **Step 1 - Contact Info:**
+
 1. **Div around fields**: Add attribute `data-bl-form-element="step"`
 2. **Add fields**: Name (required), Email (required), Phone (required)
 
 **Step 2 - Service Selection:**
+
 1. **Another Div**: Add attribute `data-bl-form-element="step"`
 2. **Select field**: Name it `service`, add options like "Web Design", "Development"
 3. **Conditional Div**: For extra questions when "Web Design" is selected
@@ -258,11 +431,13 @@ document.addEventListener('bl:field:hidden', function(e) {
    - Add attribute `data-bl-condition-value="web-design"`
 
 **Progress Indicator:**
+
 1. **Div container**: Add attribute `data-bl-form-element="step-indicator"`
 2. **Single dot inside**: Add attribute `data-bl-form-element="step-indicator-element"`
 3. **Style with CSS class** (the library creates copies automatically)
 
 **Navigation:**
+
 1. **Back button**: Add attribute `data-bl-form-element="back"`
 2. **Next button**: Add attribute `data-bl-form-element="next"`
 3. **Submit button**: Add attribute `data-bl-form-element="submit"`
@@ -270,15 +445,18 @@ document.addEventListener('bl:field:hidden', function(e) {
 ### Survey with Conditional Logic
 
 **Age Question:**
+
 1. **Select field**: Name it `age_range`, add options
 
 **Adult-Only Question:**
-1. **Div around question**: 
+
+1. **Div around question**:
    - Add attribute `data-bl-condition-field="age_range"`
    - Add attribute `data-bl-condition-value="under-18"`
    - Add attribute `data-bl-condition-operator="not-equals"`
 
 **Multiple Choice Conditions:**
+
 1. **Div for specific ages**:
    - Add attribute `data-bl-condition-field="age_range"`
    - Add attribute `data-bl-condition-value="18-25,26-35"`
@@ -292,45 +470,70 @@ document.addEventListener('bl:field:hidden', function(e) {
 
 The library adds these classes automatically:
 
-| Class | Applied To | Purpose |
-|:------|:-----------|:--------|
-| `.bl-hidden` | Hidden conditional elements | Hides elements |
-| `.bl-step-active` | Current step | Shows current step |
-| `.bl-button-disabled` | Invalid navigation buttons | Disables buttons |
-| `.active-step` | Current step indicators | Highlights active indicators |
+| Class                 | Applied To                  | Purpose                      |
+| :-------------------- | :-------------------------- | :--------------------------- |
+| `.bl-hidden`          | Hidden conditional elements | Hides elements               |
+| `.bl-step-active`     | Current step                | Shows current step           |
+| `.bl-button-disabled` | Invalid navigation buttons  | Disables buttons             |
+| `.active-step`        | Current step indicators     | Highlights active indicators |
+| `.bl-error-message`   | Error message containers    | Styles error text            |
+| `.bl-field-error`     | Invalid form fields         | Highlights invalid fields    |
 
 ### Example Styling
 
 ```css
 /* Smooth step transitions */
 .bl-step {
-  opacity: 0;
-  transition: opacity 0.3s ease;
+	opacity: 0;
+	transition: opacity 0.3s ease;
 }
 
 .bl-step.bl-step-active {
-  opacity: 1;
+	opacity: 1;
 }
 
 /* Step indicator dots */
 .step-dot {
-  width: 12px;
-  height: 12px;
-  background: #ddd;
-  border-radius: 50%;
-  margin: 0 4px;
-  transition: all 0.3s ease;
+	width: 12px;
+	height: 12px;
+	background: #ddd;
+	border-radius: 50%;
+	margin: 0 4px;
+	transition: all 0.3s ease;
 }
 
 .step-dot.active-step {
-  background: #007bff;
-  transform: scale(1.2);
+	background: #007bff;
+	transform: scale(1.2);
 }
 
 /* Disabled button styling */
 .bl-button-disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
+	opacity: 0.5;
+	cursor: not-allowed;
+}
+
+/* Error message styling */
+.bl-error-message {
+	color: #dc3545;
+	font-size: 0.875em;
+	margin-top: 0.25rem;
+	display: block;
+}
+
+.bl-field-error {
+	border-color: #dc3545 !important;
+	box-shadow: 0 0 0 0.2rem rgba(220, 53, 69, 0.25);
+}
+
+/* Custom error container */
+.error-message {
+	background: #f8d7da;
+	color: #721c24;
+	padding: 0.5rem;
+	border-radius: 0.25rem;
+	margin-top: 0.5rem;
+	border: 1px solid #f5c6cb;
 }
 ```
 
@@ -341,18 +544,34 @@ The library adds these classes automatically:
 ### Common Issues
 
 **❌ Conditional fields not working**
+
 - Check that your trigger field has the correct **Name** in Field Settings
 - Verify the **Name** matches your `data-bl-condition-field` value exactly
 - Make sure your option values match `data-bl-condition-value`
 
 **❌ Multi-step not working**
+
 - Ensure your form has the `data-bl-form-element="multistep"` attribute
 - Check that each step div has `data-bl-form-element="step"`
 - Verify navigation buttons have the correct attributes
 
 **❌ Step indicators not updating**
+
 - Confirm the container has `data-bl-form-element="step-indicator"`
 - Check that your indicator element has `data-bl-form-element="step-indicator-element"`
+
+**❌ Error messages not showing (Permissive mode)**
+
+- Verify you have `data-bl-validation-mode="permissive"` on your form
+- Check that fields have proper validation attributes (required, type, etc.)
+- Ensure error containers exist or library can create them
+- Look for custom error message attributes like `data-bl-error-message`
+
+**❌ Wrong language showing**
+
+- Check your `data-bl-language` attribute on the form
+- Verify your HTML `lang` attribute if not using form attribute
+- Supported languages: en, es, fr, it, de
 
 ### Debug Mode
 
@@ -380,4 +599,3 @@ Then check your browser's Console (F12) for helpful information.
 - [ ] Required fields are marked as Required in Webflow
 
 **The BL library works entirely through Webflow's visual interface - no coding required!**
-

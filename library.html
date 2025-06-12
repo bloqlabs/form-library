@@ -1,89 +1,164 @@
 <script>
-  /**
-   * BL (BloqLabs) Form Logic Library
-   * Conditional Fields & Multi-Step Forms Implementation
-   * Version 0.1.0
-   */
-  class BL {
-    static version = '0.1.0';
+	/**
+	 * BL (BloqLabs) Form Logic Library
+	 * Conditional Fields & Multi-Step Forms Implementation
+	 * Version 0.1.0
+	 */
 
-    constructor(options = {}) {
-      this.options = {
-        hiddenClass: 'bl-hidden',
-        animationDuration: 300,
-        clearHiddenValues: true,
-        validateOnInput: true,
-        debug: false,
-        ...options
-      };
+	// Built-in translations for common languages
+	const DEFAULT_TRANSLATIONS = {
+		en: {
+			required: 'This field is required',
+			email: 'Please enter a valid email address',
+			url: 'Please enter a valid URL',
+			tel: 'Please enter a valid phone number',
+			number: 'Please enter a valid number',
+			date: 'Please enter a valid date',
+			minLength: 'Must be at least {min} characters',
+			maxLength: 'Must be no more than {max} characters',
+			min: 'Must be at least {min}',
+			max: 'Must be no more than {max}',
+			pattern: 'Please match the required format',
+		},
+		es: {
+			required: 'Este campo es obligatorio',
+			email: 'Ingrese una dirección de email válida',
+			url: 'Ingrese una URL válida',
+			tel: 'Ingrese un número de teléfono válido',
+			number: 'Ingrese un número válido',
+			date: 'Ingrese una fecha válida',
+			minLength: 'Debe tener al menos {min} caracteres',
+			maxLength: 'No debe tener más de {max} caracteres',
+			min: 'Debe ser al menos {min}',
+			max: 'No debe ser más de {max}',
+			pattern: 'Por favor use el formato requerido',
+		},
+		fr: {
+			required: 'Ce champ est obligatoire',
+			email: 'Veuillez saisir une adresse email valide',
+			url: 'Veuillez saisir une URL valide',
+			tel: 'Veuillez saisir un numéro de téléphone valide',
+			number: 'Veuillez saisir un nombre valide',
+			date: 'Veuillez saisir une date valide',
+			minLength: 'Doit contenir au moins {min} caractères',
+			maxLength: 'Ne doit pas dépasser {max} caractères',
+			min: 'Doit être au moins {min}',
+			max: 'Ne doit pas dépasser {max}',
+			pattern: 'Veuillez respecter le format requis',
+		},
+		it: {
+			required: 'Questo campo è obbligatorio',
+			email: 'Inserisci un indirizzo email valido',
+			url: 'Inserisci un URL valido',
+			tel: 'Inserisci un numero di telefono valido',
+			number: 'Inserisci un numero valido',
+			date: 'Inserisci una data valida',
+			minLength: 'Deve contenere almeno {min} caratteri',
+			maxLength: 'Non deve superare {max} caratteri',
+			min: 'Deve essere almeno {min}',
+			max: 'Non deve superare {max}',
+			pattern: 'Si prega di rispettare il formato richiesto',
+		},
+		de: {
+			required: 'Dieses Feld ist erforderlich',
+			email: 'Bitte geben Sie eine gültige E-Mail-Adresse ein',
+			url: 'Bitte geben Sie eine gültige URL ein',
+			tel: 'Bitte geben Sie eine gültige Telefonnummer ein',
+			number: 'Bitte geben Sie eine gültige Zahl ein',
+			date: 'Bitte geben Sie ein gültiges Datum ein',
+			minLength: 'Muss mindestens {min} Zeichen lang sein',
+			maxLength: 'Darf höchstens {max} Zeichen lang sein',
+			min: 'Muss mindestens {min} sein',
+			max: 'Darf höchstens {max} sein',
+			pattern: 'Bitte verwenden Sie das erforderliche Format',
+		},
+	};
 
-      this.conditionalFields = new Map();
-      this.requiredFieldsMemory = new WeakMap();
-      this.initialized = false;
+	class BL {
+		static version = '0.1.0';
 
-      // Multi-step form properties
-      this.form = null;
-      this.steps = [];
-      this.currentStep = 0;
-      this.navigationButtons = {
-        back: [],
-        next: [],
-        submit: []
-      };
-      this.stepIndicators = {
-        progressive: [], // step-indicator (shows progress)
-        single: []       // step-indicator-single (shows only current)
-      };
-      this.stepIndicatorElements = [];
+		constructor(options = {}) {
+			this.options = {
+				hiddenClass: 'bl-hidden',
+				animationDuration: 300,
+				clearHiddenValues: true,
+				validateOnInput: true,
+				validationMode: 'strict', // 'strict' or 'permissive'
+				showInlineErrors: true,
+				errorMessageClass: 'bl-error-message',
+				fieldErrorClass: 'bl-field-error',
+				debug: false,
+				...options,
+			};
 
-      // Dynamic content observer
-      this.observer = null;
+			this.conditionalFields = new Map();
+			this.requiredFieldsMemory = new WeakMap();
+			this.customTranslations = {};
+			this.initialized = false;
 
-      this.log('BL Library v' + BL.version + ' initializing...');
-      this.init();
-    }
+			// Multi-step form properties
+			this.form = null;
+			this.steps = [];
+			this.currentStep = 0;
+			this.navigationButtons = {
+				back: [],
+				next: [],
+				submit: [],
+			};
+			this.stepIndicators = {
+				progressive: [], // step-indicator (shows progress)
+				single: [], // step-indicator-single (shows only current)
+			};
+			this.stepIndicatorElements = [];
 
-    log(...args) {
-      if (this.options.debug) {
-        console.log('[BL]', ...args);
-      }
-    }
+			// Dynamic content observer
+			this.observer = null;
 
-    init() {
-      if (this.initialized) return;
+			this.log('BL Library v' + BL.version + ' initializing...');
+			this.init();
+		}
 
-      try {
-        // Add CSS for hidden fields and multi-step forms
-        this.addStyles();
+		log(...args) {
+			if (this.options.debug) {
+				console.log('[BL]', ...args);
+			}
+		}
 
-        // Initialize multi-step functionality
-        this.initMultiStepForm();
+		init() {
+			if (this.initialized) return;
 
-        // Find all conditional fields
-        this.findConditionalFields();
+			try {
+				// Add CSS for hidden fields and multi-step forms
+				this.addStyles();
 
-        // Set up event listeners
-        this.setupEventListeners();
+				// Initialize multi-step functionality
+				this.initMultiStepForm();
 
-        // Initial evaluation
-        this.evaluateAllConditions();
+				// Find all conditional fields
+				this.findConditionalFields();
 
-        // Setup mutation observer for dynamic content
-        this.setupMutationObserver();
+				// Set up event listeners
+				this.setupEventListeners();
 
-        this.initialized = true;
-        this.log('BL Library initialized successfully');
-      } catch (error) {
-        console.error('BL Library initialization failed:', error);
-      }
-    }
+				// Initial evaluation
+				this.evaluateAllConditions();
 
-    addStyles() {
-      if (document.getElementById('bl-styles')) return;
+				// Setup mutation observer for dynamic content
+				this.setupMutationObserver();
 
-      const style = document.createElement('style');
-      style.id = 'bl-styles';
-      style.textContent = `
+				this.initialized = true;
+				this.log('BL Library initialized successfully');
+			} catch (error) {
+				console.error('BL Library initialization failed:', error);
+			}
+		}
+
+		addStyles() {
+			if (document.getElementById('bl-styles')) return;
+
+			const style = document.createElement('style');
+			style.id = 'bl-styles';
+			style.textContent = `
         .${this.options.hiddenClass} {
           display: none !important;
         }
@@ -119,777 +194,1175 @@
           pointer-events: none !important;
           cursor: not-allowed !important;
         }
+
+        /* Error message styles */
+        .bl-error-message {
+          color: #dc3545;
+          font-size: 0.875em;
+          margin-top: 0.25rem;
+          display: block;
+        }
+
+        .bl-field-error {
+          border-color: #dc3545 !important;
+          box-shadow: 0 0 0 0.2rem rgba(220, 53, 69, 0.25) !important;
+        }
+
+        /* Hide error messages by default */
+        .bl-error-message:empty {
+          display: none !important;
+        }
       `;
-      document.head.appendChild(style);
-      this.log('Styles added');
-    }
-
-    setupMutationObserver() {
-      if (this.observer || !window.MutationObserver) return;
-
-      this.observer = new MutationObserver(() => {
-        this.log('DOM mutation detected, refreshing...');
-        this.refresh();
-      });
-
-      this.observer.observe(document.body, {
-        childList: true,
-        subtree: true
-      });
-
-      this.log('Mutation observer setup');
-    }
-
-    // Multi-step form initialization
-    initMultiStepForm() {
-      this.form = document.querySelector('[data-bl-form-element="multistep"]');
-      if (!this.form) {
-        this.log('No multi-step form found');
-        return;
-      }
-
-      this.log('Multi-step form found, initializing...');
-      this.findSteps();
-      this.findNavigationButtons();
-      this.findStepIndicators();
-      this.setupMultiStepEventListeners();
-      this.showStep(0);
-    }
-
-    findSteps() {
-      this.steps = Array.from(document.querySelectorAll('[data-bl-form-element="step"]'));
-
-      // Add step classes and hide all steps initially
-      this.steps.forEach((step, index) => {
-        step.classList.add('bl-step');
-        step.setAttribute('data-step-index', index);
-      });
-
-      this.log(`Found ${this.steps.length} steps`);
-    }
-
-    findStepIndicators() {
-      // Find progressive indicators (show all steps up to current)
-      this.stepIndicators.progressive = Array.from(
-        document.querySelectorAll('[data-bl-form-element="step-indicator"]')
-      );
-
-      // Find single indicators (show only current step)
-      this.stepIndicators.single = Array.from(
-        document.querySelectorAll('[data-bl-form-element="step-indicator-single"]')
-      );
-
-      // Auto-duplicate single indicator elements if needed
-      this.duplicateStepIndicatorElements();
-
-      // Find all indicator elements
-      this.stepIndicatorElements = Array.from(
-        document.querySelectorAll('[data-bl-form-element="step-indicator-element"]')
-      );
-
-      // Clean up any existing active-step classes
-      this.stepIndicatorElements.forEach(element => {
-        element.classList.remove('active-step');
-      });
-
-      // Add step index to each indicator element for easier management
-      this.stepIndicatorElements.forEach((element, index) => {
-        element.setAttribute('data-step-indicator-index', index);
-      });
-
-      this.log(`Found ${this.stepIndicators.progressive.length} progressive indicators, ${this.stepIndicators.single.length} single indicators, ${this.stepIndicatorElements.length} indicator elements`);
-    }
-
-    duplicateStepIndicatorElements() {
-      if (this.steps.length === 0) return;
-
-      // Process both types of indicators
-      [...this.stepIndicators.progressive, ...this.stepIndicators.single].forEach(indicator => {
-        const existingElements = indicator.querySelectorAll('[data-bl-form-element="step-indicator-element"]');
-
-        // If there's exactly one element and we have more than one step, duplicate it
-        if (existingElements.length === 1 && this.steps.length > 1) {
-          const templateElement = existingElements[0];
-
-          // Create additional elements to match the number of steps
-          for (let i = 1; i < this.steps.length; i++) {
-            const clonedElement = templateElement.cloneNode(true);
-
-            // Clear any existing active-step class from clones
-            clonedElement.classList.remove('active-step');
-
-            // Add the cloned element after the template
-            templateElement.parentNode.insertBefore(clonedElement, templateElement.nextSibling);
-          }
-
-          this.log(`Duplicated step indicator element to create ${this.steps.length} indicators`);
-        }
-      });
-    }
-
-    findNavigationButtons() {
-      // Find buttons or their parent containers
-      const findButtons = (selector) => {
-        const buttons = [];
-        const elements = document.querySelectorAll(`[data-bl-form-element="${selector}"]`);
-
-        elements.forEach(element => {
-          // Check if element itself is a button
-          if (element.tagName.toLowerCase() === 'button' || element.tagName.toLowerCase() === 'a' || element.type === 'button' || element.type === 'submit') {
-            buttons.push(element);
-          } else {
-            // Look for buttons inside the element
-            const innerButtons = element.querySelectorAll('button, input[type="button"], input[type="submit"], a');
-            buttons.push(...innerButtons);
-          }
-        });
-
-        return buttons;
-      };
-
-      this.navigationButtons.back = findButtons('back');
-      this.navigationButtons.next = findButtons('next');
-      this.navigationButtons.submit = findButtons('submit');
-
-      this.log(`Navigation buttons found - Back: ${this.navigationButtons.back.length}, Next: ${this.navigationButtons.next.length}, Submit: ${this.navigationButtons.submit.length}`);
-    }
-
-    setupMultiStepEventListeners() {
-      // Back button events
-      this.navigationButtons.back.forEach(button => {
-        button.addEventListener('click', (e) => {
-          e.preventDefault();
-          this.log('Back button clicked');
-          this.goToPreviousStep();
-        });
-      });
-
-      // Next button events
-      this.navigationButtons.next.forEach(button => {
-        button.addEventListener('click', (e) => {
-          e.preventDefault();
-          this.log('Next button clicked');
-          if (this.validateCurrentStep()) {
-            this.goToNextStep();
-          } else {
-            this.log('Current step validation failed');
-          }
-        });
-      });
-
-      // Submit button events
-      this.navigationButtons.submit.forEach(button => {
-        button.addEventListener('click', (e) => {
-          this.log('Submit button clicked');
-          if (!this.validateCurrentStep()) {
-            e.preventDefault();
-            this.log('Final step validation failed');
-          }
-        });
-      });
-
-      // Validation on input/change
-      if (this.options.validateOnInput && this.form) {
-        this.form.addEventListener('input', () => {
-          this.updateNavigationButtons();
-        });
-
-        this.form.addEventListener('change', () => {
-          this.updateNavigationButtons();
-        });
-      }
-
-      this.log('Multi-step event listeners setup');
-    }
-
-    showStep(stepIndex) {
-      if (stepIndex < 0 || stepIndex >= this.steps.length) {
-        this.log(`Invalid step index: ${stepIndex}`);
-        return;
-      }
-
-      // Hide all steps
-      this.steps.forEach(step => {
-        step.classList.remove('bl-step-active');
-      });
-
-      // Show current step
-      if (this.steps[stepIndex]) {
-        this.steps[stepIndex].classList.add('bl-step-active');
-      }
-
-      this.currentStep = stepIndex;
-      this.updateNavigationButtons();
-      this.updateStepIndicators();
-
-      this.log(`Showing step ${stepIndex + 1} of ${this.steps.length}`);
-
-      // Trigger custom event
-      if (this.form) {
-        this.form.dispatchEvent(new CustomEvent('bl:step:changed', {
-          detail: { 
-            currentStep: stepIndex,
-            totalSteps: this.steps.length,
-            stepElement: this.steps[stepIndex]
-          }
-        }));
-      }
-    }
-
-    goToNextStep() {
-      if (this.currentStep < this.steps.length - 1) {
-        this.showStep(this.currentStep + 1);
-      }
-    }
-
-    goToPreviousStep() {
-      if (this.currentStep > 0) {
-        this.showStep(this.currentStep - 1);
-      }
-    }
-
-    validateCurrentStep() {
-      if (!this.steps[this.currentStep]) return true;
-
-      const currentStepElement = this.steps[this.currentStep];
-      const isValid = this.validateStep(currentStepElement);
-      this.log(`Current step validation: ${isValid ? 'passed' : 'failed'}`);
-      return isValid;
-    }
-
-    validateStep(stepElement) {
-      const fields = stepElement.querySelectorAll('input, select, textarea');
-      let isValid = true;
-
-      fields.forEach(field => {
-        // Skip hidden fields and disabled fields
-        if (field.closest('.bl-hidden') || field.disabled) return;
-
-        if (!this.validateField(field)) {
-          isValid = false;
-          this.log(`Field validation failed: ${field.name || field.type}`);
-        }
-      });
-
-      return isValid;
-    }
-
-    updateStepIndicators() {
-      if (this.stepIndicatorElements.length === 0) return;
-
-      // Clear all active states first
-      this.stepIndicatorElements.forEach(element => {
-        element.classList.remove('active-step');
-      });
-
-      // Update progressive indicators (show all steps up to and including current)
-      this.stepIndicators.progressive.forEach(progressiveIndicator => {
-        const indicatorElements = progressiveIndicator.querySelectorAll('[data-bl-form-element="step-indicator-element"]');
-
-        indicatorElements.forEach((element, index) => {
-          if (index <= this.currentStep) {
-            element.classList.add('active-step');
-          }
-        });
-      });
-
-      // Update single indicators (show only current step)
-      this.stepIndicators.single.forEach(singleIndicator => {
-        const indicatorElements = singleIndicator.querySelectorAll('[data-bl-form-element="step-indicator-element"]');
-
-        if (indicatorElements[this.currentStep]) {
-          indicatorElements[this.currentStep].classList.add('active-step');
-        }
-      });
-
-      // Also handle global indicator elements (not inside a specific indicator container)
-      const globalIndicatorElements = document.querySelectorAll('body > [data-bl-form-element="step-indicator-element"], [data-bl-form-element="step-indicator-element"]:not([data-bl-form-element="step-indicator"] [data-bl-form-element="step-indicator-element"], [data-bl-form-element="step-indicator-single"] [data-bl-form-element="step-indicator-element"])');
-
-      globalIndicatorElements.forEach((element, index) => {
-        if (index <= this.currentStep) {
-          element.classList.add('active-step');
-        }
-      });
-
-      this.log(`Step indicators updated for step ${this.currentStep + 1}`);
-    }
-
-    validateField(field) {
-      try {
-        const value = field.value.trim();
-        const type = field.type ? field.type.toLowerCase() : undefined;
-        const required = field.hasAttribute('required');
-
-        // Required field validation
-        if (required) {
-          if (type === 'checkbox' || type === 'radio') {
-            const name = field.name;
-            const checkedFields = document.querySelectorAll(`input[name="${name}"]:checked`);
-            if (checkedFields.length === 0) return false;
-          } else if (!value) {
-            return false;
-          }
-        }
-
-        // Skip further validation if field is empty and not required
-        if (!value && !required) return true;
-
-        // Type-specific validation
-        switch (type) {
-          case 'email':
-            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-            return emailRegex.test(value);
-
-          case 'url':
-            try {
-              new URL(value);
-              return true;
-            } catch {
-              return false;
-            }
-
-          case 'tel':
-            // Basic phone validation (at least 10 digits)
-            const phoneRegex = /\d{10,}/;
-            return phoneRegex.test(value.replace(/\D/g, ''));
-
-          case 'number':
-            const num = parseFloat(value);
-            if (isNaN(num)) return false;
-
-            const min = field.getAttribute('min');
-            const max = field.getAttribute('max');
-
-            if (min !== null && !isNaN(parseFloat(min)) && num < parseFloat(min)) return false;
-            if (max !== null && !isNaN(parseFloat(max)) && num > parseFloat(max)) return false;
-
-            return true;
-
-          case 'date':
-          case 'datetime-local':
-            return !isNaN(Date.parse(value));
-
-          default:
-            // Check minlength and maxlength
-            const minLength = field.getAttribute('minlength');
-            const maxLength = field.getAttribute('maxlength');
-
-            if (minLength && value.length < parseInt(minLength)) return false;
-            if (maxLength && value.length > parseInt(maxLength)) return false;
-
-            // Check pattern attribute
-            const pattern = field.getAttribute('pattern');
-            if (pattern) {
-              const regex = new RegExp(pattern);
-              return regex.test(value);
-            }
-
-            return true;
-        }
-      } catch (error) {
-        this.log('Field validation error:', error);
-        return false;
-      }
-    }
-
-    updateNavigationButtons() {
-      if (!this.form) return;
-
-      const isCurrentStepValid = this.validateCurrentStep();
-      const isFirstStep = this.currentStep === 0;
-      const isLastStep = this.currentStep === this.steps.length - 1;
-
-      // Update form validation class
-      if (isCurrentStepValid) {
-        this.form.classList.remove('bl-form-invalid');
-      } else {
-        this.form.classList.add('bl-form-invalid');
-      }
-
-      // Update back buttons - HIDE on first step
-      this.navigationButtons.back.forEach(button => {
-        const parentElement = button.closest('[data-bl-form-element="back"]') || button;
-
-        if (isFirstStep) {
-          parentElement.classList.add('bl-hidden');
-        } else {
-          parentElement.classList.remove('bl-hidden');
-        }
-      });
-
-      // Update next buttons - HIDE on last step, disable if validation fails
-      this.navigationButtons.next.forEach(button => {
-        const parentElement = button.closest('[data-bl-form-element="next"]') || button;
-
-        if (isLastStep) {
-          parentElement.classList.add('bl-hidden');
-        } else {
-          parentElement.classList.remove('bl-hidden');
-
-          if (isCurrentStepValid) {
-            parentElement.classList.remove('bl-button-disabled');
-          } else {
-            parentElement.classList.add('bl-button-disabled');
-          }
-        }
-      });
-
-      // Update submit buttons - HIDE when not on last step, disable if validation fails
-      this.navigationButtons.submit.forEach(button => {
-        const parentElement = button.closest('[data-bl-form-element="submit"]') || button;
-
-        if (!isLastStep) {
-          parentElement.classList.add('bl-hidden');
-        } else {
-          parentElement.classList.remove('bl-hidden');
-
-          if (isCurrentStepValid) {
-            parentElement.classList.remove('bl-button-disabled');
-          } else {
-            parentElement.classList.add('bl-button-disabled');
-          }
-        }
-      });
-    }
-
-
-    // Conditional fields methods
-    findConditionalFields() {
-      const conditionalElements = document.querySelectorAll('[data-bl-condition-field]');
-
-      conditionalElements.forEach(element => {
-        const conditions = this.parseConditions(element);
-        const fieldId = this.generateFieldId(element);
-
-        this.conditionalFields.set(fieldId, {
-          element,
-          conditions,
-          isVisible: true
-        });
-      });
-
-      this.log(`Found ${conditionalElements.length} conditional fields`);
-    }
-
-    parseConditions(element) {
-      const conditions = [];
-
-      // Support multiple conditions (AND logic)
-      for (let i = 1; i <= 10; i++) {
-        const suffix = i === 1 ? '' : `-${i}`;
-        const fieldAttr = `data-bl-condition-field${suffix}`;
-        const valueAttr = `data-bl-condition-value${suffix}`;
-        const operatorAttr = `data-bl-condition-operator${suffix}`;
-
-        const field = element.getAttribute(fieldAttr);
-        if (!field) break;
-
-        conditions.push({
-          field,
-          value: element.getAttribute(valueAttr) || '',
-          operator: element.getAttribute(operatorAttr) || 'equals'
-        });
-      }
-
-      return conditions;
-    }
-
-    generateFieldId(element) {
-      return `bl-field-${Math.random().toString(36).substr(2, 9)}`;
-    }
-
-    setupEventListeners() {
-      // Get all trigger fields
-      const triggerFields = new Set();
-
-      this.conditionalFields.forEach(({ conditions }) => {
-        conditions.forEach(({ field }) => {
-          triggerFields.add(field);
-        });
-      });
-
-      // Add event listeners to trigger fields
-      triggerFields.forEach(fieldName => {
-        const fieldElements = this.getFieldElements(fieldName);
-
-        fieldElements.forEach(element => {
-          const eventType = this.getEventType(element);
-          element.addEventListener(eventType, () => {
-            this.evaluateAllConditions();
-            // Update navigation buttons when conditional fields change
-            if (this.form) {
-              this.updateNavigationButtons();
-            }
-          });
-        });
-      });
-
-      this.log(`Event listeners setup for ${triggerFields.size} trigger fields`);
-    }
-
-    getFieldElements(fieldName) {
-      return document.querySelectorAll(`[name="${fieldName}"]`);
-    }
-
-    getEventType(element) {
-      const tagName = element.tagName.toLowerCase();
-      const type = element.type ? element.type.toLowerCase() : undefined;
-
-      if (tagName === 'select' || type === 'radio' || type === 'checkbox') {
-        return 'change';
-      }
-      return 'input';
-    }
-
-    evaluateAllConditions() {
-      this.conditionalFields.forEach((fieldData, fieldId) => {
-        const shouldShow = this.evaluateConditions(fieldData.conditions);
-        this.toggleField(fieldData, shouldShow);
-      });
-    }
-
-    evaluateConditions(conditions) {
-      return conditions.every(condition => {
-        const fieldValue = this.getFieldValue(condition.field);
-        return this.compareValues(fieldValue, condition.value, condition.operator);
-      });
-    }
-
-    getFieldValue(fieldName) {
-      const elements = this.getFieldElements(fieldName);
-
-      if (elements.length === 0) return '';
-
-      const element = elements[0];
-      const tagName = element.tagName.toLowerCase();
-      const type = element.type ? element.type.toLowerCase() : undefined;
-
-      if (type === 'checkbox') {
-        const checkedBoxes = Array.from(elements).filter(el => el.checked);
-        return checkedBoxes.map(el => el.value);
-      }
-
-      if (type === 'radio') {
-        const checked = Array.from(elements).find(el => el.checked);
-        return checked ? checked.value : '';
-      }
-
-      return element.value || '';
-    }
-
-    compareValues(fieldValue, conditionValue, operator) {
-      const fieldVal = Array.isArray(fieldValue) ? fieldValue : [fieldValue];
-      const conditionValues = conditionValue.split(',').map(v => v.trim());
-
-      switch (operator) {
-        case 'equals':
-          return conditionValues.some(cv => fieldVal.includes(cv));
-
-        case 'not-equals':
-          return !conditionValues.some(cv => fieldVal.includes(cv));
-
-        case 'includes':
-          return conditionValues.some(cv => fieldVal.includes(cv));
-
-        case 'excludes':
-          return !conditionValues.some(cv => fieldVal.includes(cv));
-
-        case 'contains':
-          return fieldVal.some(fv => 
-            conditionValues.some(cv => fv.toLowerCase().includes(cv.toLowerCase()))
-          );
-
-        case 'greater-than':
-          return fieldVal.some(fv => {
-            const num = parseFloat(fv);
-            const compareNum = parseFloat(conditionValues[0]);
-            return !isNaN(num) && !isNaN(compareNum) && num > compareNum;
-          });
-
-        case 'less-than':
-          return fieldVal.some(fv => {
-            const num = parseFloat(fv);
-            const compareNum = parseFloat(conditionValues[0]);
-            return !isNaN(num) && !isNaN(compareNum) && num < compareNum;
-          });
-
-        case 'empty':
-          return fieldVal.every(fv => !fv || fv.trim() === '');
-
-        case 'not-empty':
-          return fieldVal.some(fv => fv && fv.trim() !== '');
-
-        default:
-          return conditionValues.some(cv => fieldVal.includes(cv));
-      }
-    }
-
-    toggleField(fieldData, shouldShow) {
-      const { element } = fieldData;
-
-      if (shouldShow && !fieldData.isVisible) {
-        this.showField(element);
-        fieldData.isVisible = true;
-      } else if (!shouldShow && fieldData.isVisible) {
-        this.hideField(element);
-        fieldData.isVisible = false;
-      }
-    }
-
-    showField(element) {
-      this.restoreRequiredFields(element);
-      element.classList.remove(this.options.hiddenClass);
-
-      element.dispatchEvent(new CustomEvent('bl:field:shown', {
-        detail: { element }
-      }));
-    }
-
-    hideField(element) {
-      this.storeAndRemoveRequiredFields(element);
-
-      if (this.options.clearHiddenValues) {
-        this.clearFieldValues(element);
-      }
-
-      element.classList.add(this.options.hiddenClass);
-
-      element.dispatchEvent(new CustomEvent('bl:field:hidden', {
-        detail: { element }
-      }));
-    }
-
-    storeAndRemoveRequiredFields(container) {
-      const requiredFields = container.querySelectorAll('[required]');
-      const requiredData = [];
-
-      requiredFields.forEach(field => {
-        requiredData.push(field);
-        field.removeAttribute('required');
-      });
-
-      if (requiredData.length > 0) {
-        this.requiredFieldsMemory.set(container, requiredData);
-      }
-    }
-
-    restoreRequiredFields(container) {
-      const requiredFields = this.requiredFieldsMemory.get(container);
-
-      if (requiredFields) {
-        requiredFields.forEach(field => {
-          field.setAttribute('required', '');
-        });
-        this.requiredFieldsMemory.delete(container);
-      }
-    }
-
-    clearFieldValues(container) {
-      const inputs = container.querySelectorAll('input, select, textarea');
-
-      inputs.forEach(input => {
-        const type = input.type ? input.type.toLowerCase() : undefined;
-
-        if (type === 'checkbox' || type === 'radio') {
-          input.checked = false;
-        } else {
-          input.value = '';
-        }
-
-        input.dispatchEvent(new Event('change', { bubbles: true }));
-      });
-    }
-
-    // Public API methods
-    refresh() {
-      this.log('Manual refresh triggered');
-      this.findConditionalFields();
-      this.findSteps();
-      this.findNavigationButtons();
-      this.findStepIndicators();
-      this.evaluateAllConditions();
-      this.updateNavigationButtons();
-      this.updateStepIndicators();
-    }
-
-    // Multi-step public API
-    goToStep(stepIndex) {
-      this.log(`Manual navigation to step ${stepIndex + 1}`);
-      this.showStep(stepIndex);
-    }
-
-    getCurrentStep() {
-      return this.currentStep;
-    }
-
-    getTotalSteps() {
-      return this.steps.length;
-    }
-
-    validateAllSteps() {
-      return this.steps.every(step => this.validateStep(step));
-    }
-
-    // Debug helper
-    getDebugInfo() {
-      return {
-        version: BL.version,
-        initialized: this.initialized,
-        conditionalFields: this.conditionalFields.size,
-        steps: this.steps.length,
-        currentStep: this.currentStep,
-        form: !!this.form,
-        navigationButtons: {
-          back: this.navigationButtons.back.length,
-          next: this.navigationButtons.next.length,
-          submit: this.navigationButtons.submit.length
-        }
-      };
-    }
-
-    destroy() {
-      this.log('Destroying BL instance');
-
-      if (this.observer) {
-        this.observer.disconnect();
-        this.observer = null;
-      }
-
-      this.conditionalFields.clear();
-      this.requiredFieldsMemory = new WeakMap();
-      this.initialized = false;
-
-      const styles = document.getElementById('bl-styles');
-      if (styles) styles.remove();
-    }
-
-    addConditionalField(element) {
-      const conditions = this.parseConditions(element);
-      const fieldId = this.generateFieldId(element);
-
-      this.conditionalFields.set(fieldId, {
-        element,
-        conditions,
-        isVisible: true
-      });
-
-      this.setupEventListeners();
-      this.evaluateAllConditions();
-      this.log('Conditional field added dynamically');
-    }
-  }
-
-  // Auto-initialize
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => {
-      window.bl = new BL();
-    });
-  } else {
-    window.bl = new BL();
-  }
-
-  // Export for module systems
-  if (typeof module !== 'undefined' && module.exports) {
-    module.exports = BL;
-  }
+			document.head.appendChild(style);
+			this.log('Styles added');
+		}
+
+		setupMutationObserver() {
+			if (this.observer || !window.MutationObserver) return;
+
+			this.observer = new MutationObserver(() => {
+				this.log('DOM mutation detected, refreshing...');
+				this.refresh();
+			});
+
+			this.observer.observe(document.body, {
+				childList: true,
+				subtree: true,
+			});
+
+			this.log('Mutation observer setup');
+		}
+
+		// Multi-step form initialization
+		initMultiStepForm() {
+			this.form = document.querySelector('[data-bl-form-element="multistep"]');
+			if (!this.form) {
+				this.log('No multi-step form found');
+				return;
+			}
+
+			this.log('Multi-step form found, initializing...');
+			this.findSteps();
+			this.findNavigationButtons();
+			this.findStepIndicators();
+			this.setupMultiStepEventListeners();
+			this.showStep(0);
+		}
+
+		findSteps() {
+			this.steps = Array.from(
+				document.querySelectorAll('[data-bl-form-element="step"]')
+			);
+
+			// Add step classes and hide all steps initially
+			this.steps.forEach((step, index) => {
+				step.classList.add('bl-step');
+				step.setAttribute('data-step-index', index);
+			});
+
+			this.log(`Found ${this.steps.length} steps`);
+		}
+
+		findStepIndicators() {
+			// Find progressive indicators (show all steps up to current)
+			this.stepIndicators.progressive = Array.from(
+				document.querySelectorAll('[data-bl-form-element="step-indicator"]')
+			);
+
+			// Find single indicators (show only current step)
+			this.stepIndicators.single = Array.from(
+				document.querySelectorAll(
+					'[data-bl-form-element="step-indicator-single"]'
+				)
+			);
+
+			// Auto-duplicate single indicator elements if needed
+			this.duplicateStepIndicatorElements();
+
+			// Find all indicator elements
+			this.stepIndicatorElements = Array.from(
+				document.querySelectorAll(
+					'[data-bl-form-element="step-indicator-element"]'
+				)
+			);
+
+			// Clean up any existing active-step classes
+			this.stepIndicatorElements.forEach((element) => {
+				element.classList.remove('active-step');
+			});
+
+			// Add step index to each indicator element for easier management
+			this.stepIndicatorElements.forEach((element, index) => {
+				element.setAttribute('data-step-indicator-index', index);
+			});
+
+			this.log(
+				`Found ${this.stepIndicators.progressive.length} progressive indicators, ${this.stepIndicators.single.length} single indicators, ${this.stepIndicatorElements.length} indicator elements`
+			);
+		}
+
+		duplicateStepIndicatorElements() {
+			if (this.steps.length === 0) return;
+
+			// Process both types of indicators
+			[
+				...this.stepIndicators.progressive,
+				...this.stepIndicators.single,
+			].forEach((indicator) => {
+				const existingElements = indicator.querySelectorAll(
+					'[data-bl-form-element="step-indicator-element"]'
+				);
+
+				// If there's exactly one element and we have more than one step, duplicate it
+				if (existingElements.length === 1 && this.steps.length > 1) {
+					const templateElement = existingElements[0];
+
+					// Create additional elements to match the number of steps
+					for (let i = 1; i < this.steps.length; i++) {
+						const clonedElement = templateElement.cloneNode(true);
+
+						// Clear any existing active-step class from clones
+						clonedElement.classList.remove('active-step');
+
+						// Add the cloned element after the template
+						templateElement.parentNode.insertBefore(
+							clonedElement,
+							templateElement.nextSibling
+						);
+					}
+
+					this.log(
+						`Duplicated step indicator element to create ${this.steps.length} indicators`
+					);
+				}
+			});
+		}
+
+		findNavigationButtons() {
+			// Find buttons or their parent containers
+			const findButtons = (selector) => {
+				const buttons = [];
+				const elements = document.querySelectorAll(
+					`[data-bl-form-element="${selector}"]`
+				);
+
+				elements.forEach((element) => {
+					// Check if element itself is a button
+					if (
+						element.tagName.toLowerCase() === 'button' ||
+						element.tagName.toLowerCase() === 'a' ||
+						element.type === 'button' ||
+						element.type === 'submit'
+					) {
+						buttons.push(element);
+					} else {
+						// Look for buttons inside the element
+						const innerButtons = element.querySelectorAll(
+							'button, input[type="button"], input[type="submit"], a'
+						);
+						buttons.push(...innerButtons);
+					}
+				});
+
+				return buttons;
+			};
+
+			this.navigationButtons.back = findButtons('back');
+			this.navigationButtons.next = findButtons('next');
+			this.navigationButtons.submit = findButtons('submit');
+
+			this.log(
+				`Navigation buttons found - Back: ${this.navigationButtons.back.length}, Next: ${this.navigationButtons.next.length}, Submit: ${this.navigationButtons.submit.length}`
+			);
+		}
+
+		setupMultiStepEventListeners() {
+			// Read form configuration including validation mode
+			const config = this.getFormConfiguration();
+
+			// Back button events
+			this.navigationButtons.back.forEach((button) => {
+				button.addEventListener('click', (e) => {
+					e.preventDefault();
+					this.log('Back button clicked');
+					this.goToPreviousStep();
+				});
+			});
+
+			// Next button events
+			this.navigationButtons.next.forEach((button) => {
+				button.addEventListener('click', (e) => {
+					e.preventDefault();
+					this.log('Next button clicked');
+
+					if (config.validationMode === 'permissive') {
+						// Permissive mode: always validate, show errors, navigate only if valid
+						if (this.validateCurrentStep()) {
+							this.clearFieldErrors(this.steps[this.currentStep]);
+							this.goToNextStep();
+						} else {
+							this.log('Current step validation failed - showing errors');
+							if (config.showInlineErrors) {
+								this.showFieldErrors(this.steps[this.currentStep]);
+							}
+						}
+					} else {
+						// Strict mode: validate and navigate only if valid (original behavior)
+						if (this.validateCurrentStep()) {
+							this.goToNextStep();
+						} else {
+							this.log('Current step validation failed');
+						}
+					}
+				});
+			});
+
+			// Submit button events
+			this.navigationButtons.submit.forEach((button) => {
+				button.addEventListener('click', (e) => {
+					this.log('Submit button clicked');
+
+					if (config.validationMode === 'permissive') {
+						// Permissive mode: validate and show errors if invalid
+						if (!this.validateCurrentStep()) {
+							e.preventDefault();
+							this.log('Final step validation failed - showing errors');
+							if (config.showInlineErrors) {
+								this.showFieldErrors(this.steps[this.currentStep]);
+							}
+						}
+					} else {
+						// Strict mode: original behavior
+						if (!this.validateCurrentStep()) {
+							e.preventDefault();
+							this.log('Final step validation failed');
+						}
+					}
+				});
+			});
+
+			// Validation on input/change
+			if (this.options.validateOnInput && this.form) {
+				this.form.addEventListener('input', () => {
+					this.updateNavigationButtons();
+
+					// In permissive mode, clear errors as user types
+					if (
+						config.validationMode === 'permissive' &&
+						config.showInlineErrors
+					) {
+						// Clear errors for the field being edited
+						const activeElement = document.activeElement;
+						if (
+							activeElement &&
+							(activeElement.tagName === 'INPUT' ||
+								activeElement.tagName === 'SELECT' ||
+								activeElement.tagName === 'TEXTAREA')
+						) {
+							this.clearFieldError(activeElement);
+						}
+					}
+				});
+
+				this.form.addEventListener('change', () => {
+					this.updateNavigationButtons();
+				});
+			}
+
+			this.log('Multi-step event listeners setup');
+		}
+
+		showStep(stepIndex) {
+			if (stepIndex < 0 || stepIndex >= this.steps.length) {
+				this.log(`Invalid step index: ${stepIndex}`);
+				return;
+			}
+
+			// Hide all steps
+			this.steps.forEach((step) => {
+				step.classList.remove('bl-step-active');
+			});
+
+			// Show current step
+			if (this.steps[stepIndex]) {
+				this.steps[stepIndex].classList.add('bl-step-active');
+			}
+
+			this.currentStep = stepIndex;
+			this.updateNavigationButtons();
+			this.updateStepIndicators();
+
+			this.log(`Showing step ${stepIndex + 1} of ${this.steps.length}`);
+
+			// Trigger custom event
+			if (this.form) {
+				this.form.dispatchEvent(
+					new CustomEvent('bl:step:changed', {
+						detail: {
+							currentStep: stepIndex,
+							totalSteps: this.steps.length,
+							stepElement: this.steps[stepIndex],
+						},
+					})
+				);
+			}
+		}
+
+		goToNextStep() {
+			if (this.currentStep < this.steps.length - 1) {
+				this.showStep(this.currentStep + 1);
+			}
+		}
+
+		goToPreviousStep() {
+			if (this.currentStep > 0) {
+				this.showStep(this.currentStep - 1);
+			}
+		}
+
+		validateCurrentStep() {
+			if (!this.steps[this.currentStep]) return true;
+
+			const currentStepElement = this.steps[this.currentStep];
+			const isValid = this.validateStep(currentStepElement);
+			this.log(`Current step validation: ${isValid ? 'passed' : 'failed'}`);
+			return isValid;
+		}
+
+		validateStep(stepElement) {
+			const fields = stepElement.querySelectorAll('input, select, textarea');
+			let isValid = true;
+
+			fields.forEach((field) => {
+				// Skip hidden fields and disabled fields
+				if (field.closest('.bl-hidden') || field.disabled) return;
+
+				if (!this.validateField(field)) {
+					isValid = false;
+					this.log(`Field validation failed: ${field.name || field.type}`);
+				}
+			});
+
+			return isValid;
+		}
+
+		updateStepIndicators() {
+			if (this.stepIndicatorElements.length === 0) return;
+
+			// Clear all active states first
+			this.stepIndicatorElements.forEach((element) => {
+				element.classList.remove('active-step');
+			});
+
+			// Update progressive indicators (show all steps up to and including current)
+			this.stepIndicators.progressive.forEach((progressiveIndicator) => {
+				const indicatorElements = progressiveIndicator.querySelectorAll(
+					'[data-bl-form-element="step-indicator-element"]'
+				);
+
+				indicatorElements.forEach((element, index) => {
+					if (index <= this.currentStep) {
+						element.classList.add('active-step');
+					}
+				});
+			});
+
+			// Update single indicators (show only current step)
+			this.stepIndicators.single.forEach((singleIndicator) => {
+				const indicatorElements = singleIndicator.querySelectorAll(
+					'[data-bl-form-element="step-indicator-element"]'
+				);
+
+				if (indicatorElements[this.currentStep]) {
+					indicatorElements[this.currentStep].classList.add('active-step');
+				}
+			});
+
+			// Also handle global indicator elements (not inside a specific indicator container)
+			const globalIndicatorElements = document.querySelectorAll(
+				'body > [data-bl-form-element="step-indicator-element"], [data-bl-form-element="step-indicator-element"]:not([data-bl-form-element="step-indicator"] [data-bl-form-element="step-indicator-element"], [data-bl-form-element="step-indicator-single"] [data-bl-form-element="step-indicator-element"])'
+			);
+
+			globalIndicatorElements.forEach((element, index) => {
+				if (index <= this.currentStep) {
+					element.classList.add('active-step');
+				}
+			});
+
+			this.log(`Step indicators updated for step ${this.currentStep + 1}`);
+		}
+
+		validateField(field) {
+			const validation = this.validateFieldWithDetails(field);
+			return validation.isValid;
+		}
+
+		validateFieldWithDetails(field) {
+			try {
+				const value = field.value.trim();
+				const type = field.type ? field.type.toLowerCase() : undefined;
+				const required = field.hasAttribute('required');
+
+				// Required field validation
+				if (required) {
+					if (type === 'checkbox' || type === 'radio') {
+						const name = field.name;
+						const checkedFields = document.querySelectorAll(
+							`input[name="${name}"]:checked`
+						);
+						if (checkedFields.length === 0) {
+							return { isValid: false, errorType: 'required' };
+						}
+					} else if (!value) {
+						return { isValid: false, errorType: 'required' };
+					}
+				}
+
+				// Skip further validation if field is empty and not required
+				if (!value && !required) {
+					return { isValid: true };
+				}
+
+				// Type-specific validation
+				switch (type) {
+					case 'email':
+						const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+						if (!emailRegex.test(value)) {
+							return { isValid: false, errorType: 'email' };
+						}
+						break;
+
+					case 'url':
+						try {
+							new URL(value);
+						} catch {
+							return { isValid: false, errorType: 'url' };
+						}
+						break;
+
+					case 'tel':
+						// Basic phone validation (at least 10 digits)
+						const phoneRegex = /\d{10,}/;
+						if (!phoneRegex.test(value.replace(/\D/g, ''))) {
+							return { isValid: false, errorType: 'tel' };
+						}
+						break;
+
+					case 'number':
+						const num = parseFloat(value);
+						if (isNaN(num)) {
+							return { isValid: false, errorType: 'number' };
+						}
+
+						const min = field.getAttribute('min');
+						const max = field.getAttribute('max');
+
+						if (
+							min !== null &&
+							!isNaN(parseFloat(min)) &&
+							num < parseFloat(min)
+						) {
+							return { isValid: false, errorType: 'min', params: { min } };
+						}
+						if (
+							max !== null &&
+							!isNaN(parseFloat(max)) &&
+							num > parseFloat(max)
+						) {
+							return { isValid: false, errorType: 'max', params: { max } };
+						}
+						break;
+
+					case 'date':
+					case 'datetime-local':
+						if (isNaN(Date.parse(value))) {
+							return { isValid: false, errorType: 'date' };
+						}
+						break;
+
+					default:
+						// Check minlength and maxlength
+						const minLength = field.getAttribute('minlength');
+						const maxLength = field.getAttribute('maxlength');
+
+						if (minLength && value.length < parseInt(minLength)) {
+							return {
+								isValid: false,
+								errorType: 'minLength',
+								params: { min: minLength },
+							};
+						}
+						if (maxLength && value.length > parseInt(maxLength)) {
+							return {
+								isValid: false,
+								errorType: 'maxLength',
+								params: { max: maxLength },
+							};
+						}
+
+						// Check pattern attribute
+						const pattern = field.getAttribute('pattern');
+						if (pattern) {
+							const regex = new RegExp(pattern);
+							if (!regex.test(value)) {
+								return { isValid: false, errorType: 'pattern' };
+							}
+						}
+						break;
+				}
+
+				return { isValid: true };
+			} catch (error) {
+				this.log('Field validation error:', error);
+				return { isValid: false, errorType: 'unknown' };
+			}
+		}
+
+		updateNavigationButtons() {
+			if (!this.form) return;
+
+			const config = this.getFormConfiguration();
+			const isCurrentStepValid = this.validateCurrentStep();
+			const isFirstStep = this.currentStep === 0;
+			const isLastStep = this.currentStep === this.steps.length - 1;
+
+			// Update form validation class
+			if (isCurrentStepValid) {
+				this.form.classList.remove('bl-form-invalid');
+			} else {
+				this.form.classList.add('bl-form-invalid');
+			}
+
+			// Update back buttons - HIDE on first step
+			this.navigationButtons.back.forEach((button) => {
+				const parentElement =
+					button.closest('[data-bl-form-element="back"]') || button;
+
+				if (isFirstStep) {
+					parentElement.classList.add('bl-hidden');
+				} else {
+					parentElement.classList.remove('bl-hidden');
+				}
+			});
+
+			// Update next buttons - HIDE on last step, disable based on validation mode
+			this.navigationButtons.next.forEach((button) => {
+				const parentElement =
+					button.closest('[data-bl-form-element="next"]') || button;
+
+				if (isLastStep) {
+					parentElement.classList.add('bl-hidden');
+				} else {
+					parentElement.classList.remove('bl-hidden');
+
+					// Only disable in strict mode
+					if (config.validationMode === 'strict') {
+						if (isCurrentStepValid) {
+							parentElement.classList.remove('bl-button-disabled');
+						} else {
+							parentElement.classList.add('bl-button-disabled');
+						}
+					} else {
+						// Permissive mode: never disable next button
+						parentElement.classList.remove('bl-button-disabled');
+					}
+				}
+			});
+
+			// Update submit buttons - HIDE when not on last step, disable based on validation mode
+			this.navigationButtons.submit.forEach((button) => {
+				const parentElement =
+					button.closest('[data-bl-form-element="submit"]') || button;
+
+				if (!isLastStep) {
+					parentElement.classList.add('bl-hidden');
+				} else {
+					parentElement.classList.remove('bl-hidden');
+
+					// Only disable in strict mode
+					if (config.validationMode === 'strict') {
+						if (isCurrentStepValid) {
+							parentElement.classList.remove('bl-button-disabled');
+						} else {
+							parentElement.classList.add('bl-button-disabled');
+						}
+					} else {
+						// Permissive mode: never disable submit button
+						parentElement.classList.remove('bl-button-disabled');
+					}
+				}
+			});
+		}
+
+		// Conditional fields methods
+		findConditionalFields() {
+			const conditionalElements = document.querySelectorAll(
+				'[data-bl-condition-field]'
+			);
+
+			conditionalElements.forEach((element) => {
+				const conditions = this.parseConditions(element);
+				const fieldId = this.generateFieldId(element);
+
+				this.conditionalFields.set(fieldId, {
+					element,
+					conditions,
+					isVisible: true,
+				});
+			});
+
+			this.log(`Found ${conditionalElements.length} conditional fields`);
+		}
+
+		parseConditions(element) {
+			const conditions = [];
+
+			// Support multiple conditions (AND logic)
+			for (let i = 1; i <= 10; i++) {
+				const suffix = i === 1 ? '' : `-${i}`;
+				const fieldAttr = `data-bl-condition-field${suffix}`;
+				const valueAttr = `data-bl-condition-value${suffix}`;
+				const operatorAttr = `data-bl-condition-operator${suffix}`;
+
+				const field = element.getAttribute(fieldAttr);
+				if (!field) break;
+
+				conditions.push({
+					field,
+					value: element.getAttribute(valueAttr) || '',
+					operator: element.getAttribute(operatorAttr) || 'equals',
+				});
+			}
+
+			return conditions;
+		}
+
+		generateFieldId(element) {
+			return `bl-field-${Math.random().toString(36).substr(2, 9)}`;
+		}
+
+		setupEventListeners() {
+			// Get all trigger fields
+			const triggerFields = new Set();
+
+			this.conditionalFields.forEach(({ conditions }) => {
+				conditions.forEach(({ field }) => {
+					triggerFields.add(field);
+				});
+			});
+
+			// Add event listeners to trigger fields
+			triggerFields.forEach((fieldName) => {
+				const fieldElements = this.getFieldElements(fieldName);
+
+				fieldElements.forEach((element) => {
+					const eventType = this.getEventType(element);
+					element.addEventListener(eventType, () => {
+						this.evaluateAllConditions();
+						// Update navigation buttons when conditional fields change
+						if (this.form) {
+							this.updateNavigationButtons();
+						}
+					});
+				});
+			});
+
+			this.log(
+				`Event listeners setup for ${triggerFields.size} trigger fields`
+			);
+		}
+
+		getFieldElements(fieldName) {
+			return document.querySelectorAll(`[name="${fieldName}"]`);
+		}
+
+		getEventType(element) {
+			const tagName = element.tagName.toLowerCase();
+			const type = element.type ? element.type.toLowerCase() : undefined;
+
+			if (tagName === 'select' || type === 'radio' || type === 'checkbox') {
+				return 'change';
+			}
+			return 'input';
+		}
+
+		evaluateAllConditions() {
+			this.conditionalFields.forEach((fieldData, fieldId) => {
+				const shouldShow = this.evaluateConditions(fieldData.conditions);
+				this.toggleField(fieldData, shouldShow);
+			});
+		}
+
+		evaluateConditions(conditions) {
+			return conditions.every((condition) => {
+				const fieldValue = this.getFieldValue(condition.field);
+				return this.compareValues(
+					fieldValue,
+					condition.value,
+					condition.operator
+				);
+			});
+		}
+
+		getFieldValue(fieldName) {
+			const elements = this.getFieldElements(fieldName);
+
+			if (elements.length === 0) return '';
+
+			const element = elements[0];
+			const tagName = element.tagName.toLowerCase();
+			const type = element.type ? element.type.toLowerCase() : undefined;
+
+			if (type === 'checkbox') {
+				const checkedBoxes = Array.from(elements).filter((el) => el.checked);
+				return checkedBoxes.map((el) => el.value);
+			}
+
+			if (type === 'radio') {
+				const checked = Array.from(elements).find((el) => el.checked);
+				return checked ? checked.value : '';
+			}
+
+			return element.value || '';
+		}
+
+		compareValues(fieldValue, conditionValue, operator) {
+			const fieldVal = Array.isArray(fieldValue) ? fieldValue : [fieldValue];
+			const conditionValues = conditionValue.split(',').map((v) => v.trim());
+
+			switch (operator) {
+				case 'equals':
+					return conditionValues.some((cv) => fieldVal.includes(cv));
+
+				case 'not-equals':
+					return !conditionValues.some((cv) => fieldVal.includes(cv));
+
+				case 'includes':
+					return conditionValues.some((cv) => fieldVal.includes(cv));
+
+				case 'excludes':
+					return !conditionValues.some((cv) => fieldVal.includes(cv));
+
+				case 'contains':
+					return fieldVal.some((fv) =>
+						conditionValues.some((cv) =>
+							fv.toLowerCase().includes(cv.toLowerCase())
+						)
+					);
+
+				case 'greater-than':
+					return fieldVal.some((fv) => {
+						const num = parseFloat(fv);
+						const compareNum = parseFloat(conditionValues[0]);
+						return !isNaN(num) && !isNaN(compareNum) && num > compareNum;
+					});
+
+				case 'less-than':
+					return fieldVal.some((fv) => {
+						const num = parseFloat(fv);
+						const compareNum = parseFloat(conditionValues[0]);
+						return !isNaN(num) && !isNaN(compareNum) && num < compareNum;
+					});
+
+				case 'empty':
+					return fieldVal.every((fv) => !fv || fv.trim() === '');
+
+				case 'not-empty':
+					return fieldVal.some((fv) => fv && fv.trim() !== '');
+
+				default:
+					return conditionValues.some((cv) => fieldVal.includes(cv));
+			}
+		}
+
+		toggleField(fieldData, shouldShow) {
+			const { element } = fieldData;
+
+			if (shouldShow && !fieldData.isVisible) {
+				this.showField(element);
+				fieldData.isVisible = true;
+			} else if (!shouldShow && fieldData.isVisible) {
+				this.hideField(element);
+				fieldData.isVisible = false;
+			}
+		}
+
+		showField(element) {
+			this.restoreRequiredFields(element);
+			element.classList.remove(this.options.hiddenClass);
+
+			element.dispatchEvent(
+				new CustomEvent('bl:field:shown', {
+					detail: { element },
+				})
+			);
+		}
+
+		hideField(element) {
+			this.storeAndRemoveRequiredFields(element);
+
+			if (this.options.clearHiddenValues) {
+				this.clearFieldValues(element);
+			}
+
+			element.classList.add(this.options.hiddenClass);
+
+			element.dispatchEvent(
+				new CustomEvent('bl:field:hidden', {
+					detail: { element },
+				})
+			);
+		}
+
+		storeAndRemoveRequiredFields(container) {
+			const requiredFields = container.querySelectorAll('[required]');
+			const requiredData = [];
+
+			requiredFields.forEach((field) => {
+				requiredData.push(field);
+				field.removeAttribute('required');
+			});
+
+			if (requiredData.length > 0) {
+				this.requiredFieldsMemory.set(container, requiredData);
+			}
+		}
+
+		restoreRequiredFields(container) {
+			const requiredFields = this.requiredFieldsMemory.get(container);
+
+			if (requiredFields) {
+				requiredFields.forEach((field) => {
+					field.setAttribute('required', '');
+				});
+				this.requiredFieldsMemory.delete(container);
+			}
+		}
+
+		clearFieldValues(container) {
+			const inputs = container.querySelectorAll('input, select, textarea');
+
+			inputs.forEach((input) => {
+				const type = input.type ? input.type.toLowerCase() : undefined;
+
+				if (type === 'checkbox' || type === 'radio') {
+					input.checked = false;
+				} else {
+					input.value = '';
+				}
+
+				input.dispatchEvent(new Event('change', { bubbles: true }));
+			});
+		}
+
+		// Public API methods
+		refresh() {
+			this.log('Manual refresh triggered');
+			this.findConditionalFields();
+			this.findSteps();
+			this.findNavigationButtons();
+			this.findStepIndicators();
+			this.evaluateAllConditions();
+			this.updateNavigationButtons();
+			this.updateStepIndicators();
+		}
+
+		// Multi-step public API
+		goToStep(stepIndex) {
+			this.log(`Manual navigation to step ${stepIndex + 1}`);
+			this.showStep(stepIndex);
+		}
+
+		getCurrentStep() {
+			return this.currentStep;
+		}
+
+		getTotalSteps() {
+			return this.steps.length;
+		}
+
+		validateAllSteps() {
+			return this.steps.every((step) => this.validateStep(step));
+		}
+
+		// Translation API
+		addTranslation(language, translations) {
+			if (!this.customTranslations[language]) {
+				this.customTranslations[language] = {};
+			}
+			Object.assign(this.customTranslations[language], translations);
+			this.log(`Added translations for language: ${language}`);
+		}
+
+		setLanguage(language) {
+			if (this.form) {
+				this.form.setAttribute('data-bl-language', language);
+				this.log(`Language set to: ${language}`);
+			}
+		}
+
+		// Debug helper
+		getDebugInfo() {
+			const config = this.getFormConfiguration();
+			return {
+				version: BL.version,
+				initialized: this.initialized,
+				language: this.getLanguage(),
+				validationMode: config.validationMode,
+				conditionalFields: this.conditionalFields.size,
+				steps: this.steps.length,
+				currentStep: this.currentStep,
+				form: !!this.form,
+				navigationButtons: {
+					back: this.navigationButtons.back.length,
+					next: this.navigationButtons.next.length,
+					submit: this.navigationButtons.submit.length,
+				},
+				customTranslations: Object.keys(this.customTranslations),
+				supportedLanguages: Object.keys(DEFAULT_TRANSLATIONS),
+			};
+		}
+
+		destroy() {
+			this.log('Destroying BL instance');
+
+			if (this.observer) {
+				this.observer.disconnect();
+				this.observer = null;
+			}
+
+			this.conditionalFields.clear();
+			this.requiredFieldsMemory = new WeakMap();
+			this.initialized = false;
+
+			const styles = document.getElementById('bl-styles');
+			if (styles) styles.remove();
+		}
+
+		addConditionalField(element) {
+			const conditions = this.parseConditions(element);
+			const fieldId = this.generateFieldId(element);
+
+			this.conditionalFields.set(fieldId, {
+				element,
+				conditions,
+				isVisible: true,
+			});
+
+			this.setupEventListeners();
+			this.evaluateAllConditions();
+			this.log('Conditional field added dynamically');
+		}
+
+		// Translation and configuration methods
+		getLanguage() {
+			// 1. Form data attribute (highest priority)
+			const formLang = this.form?.getAttribute('data-bl-language');
+			if (formLang) return formLang.toLowerCase();
+
+			// 2. HTML lang attribute
+			const htmlLang = document.documentElement.lang;
+			if (htmlLang) return htmlLang.split('-')[0].toLowerCase();
+
+			// 3. Browser language
+			const browserLang = navigator.language || navigator.languages?.[0];
+			if (browserLang) return browserLang.split('-')[0].toLowerCase();
+
+			// 4. Default fallback
+			return 'en';
+		}
+
+		getFormConfiguration() {
+			const config = { ...this.options }; // Start with JS options as fallback
+
+			if (this.form) {
+				// Override with data attributes (primary for no-code users)
+				const validationMode = this.form.getAttribute(
+					'data-bl-validation-mode'
+				);
+				if (validationMode) config.validationMode = validationMode;
+
+				const showErrors = this.form.getAttribute('data-bl-show-errors');
+				if (showErrors !== null)
+					config.showInlineErrors = showErrors !== 'false';
+
+				const errorClass = this.form.getAttribute('data-bl-error-class');
+				if (errorClass) config.errorMessageClass = errorClass;
+
+				const fieldErrorClass = this.form.getAttribute(
+					'data-bl-field-error-class'
+				);
+				if (fieldErrorClass) config.fieldErrorClass = fieldErrorClass;
+
+				// Parse custom translations from JSON attribute
+				const customTranslations = this.form.getAttribute(
+					'data-bl-translations'
+				);
+				if (customTranslations) {
+					try {
+						const parsed = JSON.parse(customTranslations);
+						Object.assign(this.customTranslations, parsed);
+					} catch (error) {
+						this.log('Error parsing custom translations:', error);
+					}
+				}
+			}
+
+			return config;
+		}
+
+		interpolateMessage(message, params = {}) {
+			return message.replace(
+				/\{(\w+)\}/g,
+				(match, key) => params[key] || match
+			);
+		}
+
+		getErrorMessage(field, errorType, params = {}) {
+			const language = this.getLanguage();
+
+			// 1. Field-specific data attribute (highest priority)
+			const fieldMessage =
+				field.getAttribute(`data-bl-error-message-${language}`) ||
+				field.getAttribute('data-bl-error-message');
+			if (fieldMessage) return this.interpolateMessage(fieldMessage, params);
+
+			// 2. Form-level custom translations
+			if (this.customTranslations[errorType]) {
+				return this.interpolateMessage(
+					this.customTranslations[errorType],
+					params
+				);
+			}
+
+			// 3. Built-in translations for current language
+			if (DEFAULT_TRANSLATIONS[language]?.[errorType]) {
+				return this.interpolateMessage(
+					DEFAULT_TRANSLATIONS[language][errorType],
+					params
+				);
+			}
+
+			// 4. Built-in English fallback
+			if (DEFAULT_TRANSLATIONS.en[errorType]) {
+				return this.interpolateMessage(
+					DEFAULT_TRANSLATIONS.en[errorType],
+					params
+				);
+			}
+
+			// 5. Generic fallback
+			return 'Please check this field';
+		}
+
+		showFieldErrors(stepElement) {
+			const fields = stepElement.querySelectorAll('input, select, textarea');
+
+			fields.forEach((field) => {
+				// Skip hidden fields and disabled fields
+				if (field.closest('.bl-hidden') || field.disabled) return;
+
+				const validation = this.validateFieldWithDetails(field);
+				if (!validation.isValid) {
+					this.displayFieldError(
+						field,
+						validation.errorType,
+						validation.params
+					);
+				} else {
+					this.clearFieldError(field);
+				}
+			});
+		}
+
+		clearFieldErrors(stepElement) {
+			const fields = stepElement.querySelectorAll('input, select, textarea');
+			fields.forEach((field) => this.clearFieldError(field));
+		}
+
+		displayFieldError(field, errorType, params = {}) {
+			const config = this.getFormConfiguration();
+			const errorMessage = this.getErrorMessage(field, errorType, params);
+
+			// Add error class to field
+			field.classList.add(config.fieldErrorClass);
+
+			// Find or create error container
+			let errorContainer = this.findErrorContainer(field);
+			if (!errorContainer) {
+				errorContainer = this.createErrorContainer(field);
+			}
+
+			// Update error message
+			errorContainer.textContent = errorMessage;
+			errorContainer.classList.add(config.errorMessageClass);
+			errorContainer.style.display = 'block';
+		}
+
+		clearFieldError(field) {
+			const config = this.getFormConfiguration();
+
+			// Remove error class from field
+			field.classList.remove(config.fieldErrorClass);
+
+			// Hide error container
+			const errorContainer = this.findErrorContainer(field);
+			if (errorContainer) {
+				errorContainer.style.display = 'none';
+				errorContainer.textContent = '';
+			}
+		}
+
+		findErrorContainer(field) {
+			const fieldName = field.name || field.id;
+
+			// 1. Look for custom error container specified by data attribute
+			const customContainer = field.getAttribute('data-bl-error-container');
+			if (customContainer) {
+				return document.querySelector(customContainer);
+			}
+
+			// 2. Look for dedicated error container with data-bl-error-for attribute
+			if (fieldName) {
+				const dedicatedContainer = document.querySelector(
+					`[data-bl-error-for="${fieldName}"]`
+				);
+				if (dedicatedContainer) return dedicatedContainer;
+			}
+
+			// 3. Look for existing error message element near the field
+			const existingError = field.parentElement?.querySelector(
+				`.${this.getFormConfiguration().errorMessageClass}`
+			);
+			if (existingError) return existingError;
+
+			return null;
+		}
+
+		createErrorContainer(field) {
+			const config = this.getFormConfiguration();
+			const errorDiv = document.createElement('div');
+			errorDiv.classList.add(config.errorMessageClass);
+			errorDiv.style.display = 'none';
+
+			// Insert after the field by default
+			field.parentElement.insertBefore(errorDiv, field.nextSibling);
+
+			return errorDiv;
+		}
+	}
+
+	// Auto-initialize
+	if (document.readyState === 'loading') {
+		document.addEventListener('DOMContentLoaded', () => {
+			window.bl = new BL();
+		});
+	} else {
+		window.bl = new BL();
+	}
+
+	// Export for module systems
+	if (typeof module !== 'undefined' && module.exports) {
+		module.exports = BL;
+	}
 </script>
