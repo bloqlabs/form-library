@@ -96,6 +96,13 @@
 			this.customTranslations = {};
 			this.initialized = false;
 
+			// Performance caching
+			this.elementCache = new Map();
+			this.fieldCache = new Map();
+
+			// Memory leak prevention - track event listeners
+			this.eventListeners = [];
+
 			// Multi-step form properties
 			this.form = null;
 			this.steps = [];
@@ -122,6 +129,32 @@
 			if (this.options.debug) {
 				console.log('[BL]', ...args);
 			}
+		}
+
+		// Performance caching methods
+		getCachedElement(selector) {
+			if (!this.elementCache.has(selector)) {
+				this.elementCache.set(selector, document.querySelector(selector));
+			}
+			return this.elementCache.get(selector);
+		}
+
+		getCachedElements(selector) {
+			if (!this.elementCache.has(selector)) {
+				this.elementCache.set(selector, document.querySelectorAll(selector));
+			}
+			return this.elementCache.get(selector);
+		}
+
+		clearElementCache() {
+			this.elementCache.clear();
+			this.fieldCache.clear();
+		}
+
+		// Memory leak prevention - track event listeners
+		addEventListener(element, event, handler, options = {}) {
+			element.addEventListener(event, handler, options);
+			this.eventListeners.push({ element, event, handler, options });
 		}
 
 		init() {
@@ -212,6 +245,16 @@
         .bl-error-message:empty {
           display: none !important;
         }
+
+        /* Accessibility improvements */
+        .bl-step[aria-hidden="true"] {
+          display: none !important;
+        }
+
+        .bl-step:focus-within {
+          outline: 2px solid #007bff;
+          outline-offset: 2px;
+        }
       `;
 			document.head.appendChild(style);
 			this.log('Styles added');
@@ -220,10 +263,13 @@
 		setupMutationObserver() {
 			if (this.observer || !window.MutationObserver) return;
 
-			this.observer = new MutationObserver(() => {
+			const mutationHandler = () => {
 				this.log('DOM mutation detected, refreshing...');
+				this.clearElementCache(); // Clear cache on DOM changes
 				this.refresh();
-			});
+			};
+
+			this.observer = new MutationObserver(mutationHandler);
 
 			this.observer.observe(document.body, {
 				childList: true,
@@ -235,10 +281,16 @@
 
 		// Multi-step form initialization
 		initMultiStepForm() {
-			this.form = document.querySelector('[data-bl-form-element="multistep"]');
+			this.form = this.getCachedElement('[data-bl-form-element="multistep"]');
 			if (!this.form) {
 				this.log('No multi-step form found');
 				return;
+			}
+
+			// Accessibility: Add form role and aria-label
+			this.form.setAttribute('role', 'form');
+			if (!this.form.getAttribute('aria-label')) {
+				this.form.setAttribute('aria-label', 'Multi-step form');
 			}
 
 			this.log('Multi-step form found, initializing...');
@@ -251,13 +303,30 @@
 
 		findSteps() {
 			this.steps = Array.from(
-				document.querySelectorAll('[data-bl-form-element="step"]')
+				this.getCachedElements('[data-bl-form-element="step"]')
 			);
 
-			// Add step classes and hide all steps initially
+			// Add step classes and accessibility attributes
 			this.steps.forEach((step, index) => {
 				step.classList.add('bl-step');
 				step.setAttribute('data-step-index', index);
+
+				// Accessibility improvements
+				step.setAttribute('role', 'tabpanel');
+				step.setAttribute('aria-labelledby', `bl-step-${index}-label`);
+				step.setAttribute('tabindex', '-1');
+
+				// Add a visually hidden label for screen readers
+				if (!step.querySelector('.bl-step-label')) {
+					const label = document.createElement('h2');
+					label.className = 'bl-step-label';
+					label.id = `bl-step-${index}-label`;
+					label.textContent =
+						step.getAttribute('data-bl-step-title') || `Step ${index + 1}`;
+					label.style.cssText =
+						'position: absolute; left: -10000px; width: 1px; height: 1px; overflow: hidden;';
+					step.insertBefore(label, step.firstChild);
+				}
 			});
 
 			this.log(`Found ${this.steps.length} steps`);
@@ -266,14 +335,12 @@
 		findStepIndicators() {
 			// Find progressive indicators (show all steps up to current)
 			this.stepIndicators.progressive = Array.from(
-				document.querySelectorAll('[data-bl-form-element="step-indicator"]')
+				this.getCachedElements('[data-bl-form-element="step-indicator"]')
 			);
 
 			// Find single indicators (show only current step)
 			this.stepIndicators.single = Array.from(
-				document.querySelectorAll(
-					'[data-bl-form-element="step-indicator-single"]'
-				)
+				this.getCachedElements('[data-bl-form-element="step-indicator-single"]')
 			);
 
 			// Auto-duplicate single indicator elements if needed
@@ -281,19 +348,20 @@
 
 			// Find all indicator elements
 			this.stepIndicatorElements = Array.from(
-				document.querySelectorAll(
+				this.getCachedElements(
 					'[data-bl-form-element="step-indicator-element"]'
 				)
 			);
 
-			// Clean up any existing active-step classes
-			this.stepIndicatorElements.forEach((element) => {
-				element.classList.remove('active-step');
-			});
-
-			// Add step index to each indicator element for easier management
+			// Clean up any existing active-step classes and add accessibility
 			this.stepIndicatorElements.forEach((element, index) => {
+				element.classList.remove('active-step');
 				element.setAttribute('data-step-indicator-index', index);
+
+				// Accessibility for indicators
+				element.setAttribute('role', 'tab');
+				element.setAttribute('aria-selected', 'false');
+				element.setAttribute('tabindex', '-1');
 			});
 
 			this.log(
@@ -342,7 +410,7 @@
 			// Find buttons or their parent containers
 			const findButtons = (selector) => {
 				const buttons = [];
-				const elements = document.querySelectorAll(
+				const elements = this.getCachedElements(
 					`[data-bl-form-element="${selector}"]`
 				);
 
@@ -371,6 +439,28 @@
 			this.navigationButtons.next = findButtons('next');
 			this.navigationButtons.submit = findButtons('submit');
 
+			// Add accessibility attributes to navigation buttons
+			this.navigationButtons.back.forEach((button) => {
+				button.setAttribute(
+					'aria-label',
+					button.getAttribute('aria-label') || 'Go to previous step'
+				);
+			});
+
+			this.navigationButtons.next.forEach((button) => {
+				button.setAttribute(
+					'aria-label',
+					button.getAttribute('aria-label') || 'Go to next step'
+				);
+			});
+
+			this.navigationButtons.submit.forEach((button) => {
+				button.setAttribute(
+					'aria-label',
+					button.getAttribute('aria-label') || 'Submit form'
+				);
+			});
+
 			this.log(
 				`Navigation buttons found - Back: ${this.navigationButtons.back.length}, Next: ${this.navigationButtons.next.length}, Submit: ${this.navigationButtons.submit.length}`
 			);
@@ -382,16 +472,17 @@
 
 			// Back button events
 			this.navigationButtons.back.forEach((button) => {
-				button.addEventListener('click', (e) => {
+				const backHandler = (e) => {
 					e.preventDefault();
 					this.log('Back button clicked');
 					this.goToPreviousStep();
-				});
+				};
+				this.addEventListener(button, 'click', backHandler);
 			});
 
 			// Next button events
 			this.navigationButtons.next.forEach((button) => {
-				button.addEventListener('click', (e) => {
+				const nextHandler = (e) => {
 					e.preventDefault();
 					this.log('Next button clicked');
 
@@ -414,12 +505,13 @@
 							this.log('Current step validation failed');
 						}
 					}
-				});
+				};
+				this.addEventListener(button, 'click', nextHandler);
 			});
 
 			// Submit button events
 			this.navigationButtons.submit.forEach((button) => {
-				button.addEventListener('click', (e) => {
+				const submitHandler = (e) => {
 					this.log('Submit button clicked');
 
 					if (config.validationMode === 'permissive') {
@@ -438,12 +530,13 @@
 							this.log('Final step validation failed');
 						}
 					}
-				});
+				};
+				this.addEventListener(button, 'click', submitHandler);
 			});
 
 			// Validation on input/change
 			if (this.options.validateOnInput && this.form) {
-				this.form.addEventListener('input', () => {
+				const inputHandler = () => {
 					this.updateNavigationButtons();
 
 					// In permissive mode, clear errors as user types
@@ -462,11 +555,14 @@
 							this.clearFieldError(activeElement);
 						}
 					}
-				});
+				};
 
-				this.form.addEventListener('change', () => {
+				const changeHandler = () => {
 					this.updateNavigationButtons();
-				});
+				};
+
+				this.addEventListener(this.form, 'input', inputHandler);
+				this.addEventListener(this.form, 'change', changeHandler);
 			}
 
 			this.log('Multi-step event listeners setup');
@@ -478,14 +574,30 @@
 				return;
 			}
 
-			// Hide all steps
-			this.steps.forEach((step) => {
+			// Hide all steps and update accessibility attributes
+			this.steps.forEach((step, index) => {
 				step.classList.remove('bl-step-active');
+				step.setAttribute('aria-hidden', 'true');
+				step.setAttribute('tabindex', '-1');
 			});
 
-			// Show current step
+			// Show current step with accessibility
 			if (this.steps[stepIndex]) {
 				this.steps[stepIndex].classList.add('bl-step-active');
+				this.steps[stepIndex].setAttribute('aria-hidden', 'false');
+				this.steps[stepIndex].setAttribute('tabindex', '0');
+
+				// Focus management for accessibility
+				setTimeout(() => {
+					const firstFocusableElement = this.steps[stepIndex].querySelector(
+						'input, select, textarea, button, [tabindex]:not([tabindex="-1"])'
+					);
+					if (firstFocusableElement) {
+						firstFocusableElement.focus();
+					} else {
+						this.steps[stepIndex].focus();
+					}
+				}, 100);
 			}
 
 			this.currentStep = stepIndex;
@@ -549,9 +661,11 @@
 		updateStepIndicators() {
 			if (this.stepIndicatorElements.length === 0) return;
 
-			// Clear all active states first
-			this.stepIndicatorElements.forEach((element) => {
+			// Clear all active states and update accessibility
+			this.stepIndicatorElements.forEach((element, index) => {
 				element.classList.remove('active-step');
+				element.setAttribute('aria-selected', 'false');
+				element.setAttribute('tabindex', '-1');
 			});
 
 			// Update progressive indicators (show all steps up to and including current)
@@ -563,6 +677,10 @@
 				indicatorElements.forEach((element, index) => {
 					if (index <= this.currentStep) {
 						element.classList.add('active-step');
+						if (index === this.currentStep) {
+							element.setAttribute('aria-selected', 'true');
+							element.setAttribute('tabindex', '0');
+						}
 					}
 				});
 			});
@@ -575,6 +693,11 @@
 
 				if (indicatorElements[this.currentStep]) {
 					indicatorElements[this.currentStep].classList.add('active-step');
+					indicatorElements[this.currentStep].setAttribute(
+						'aria-selected',
+						'true'
+					);
+					indicatorElements[this.currentStep].setAttribute('tabindex', '0');
 				}
 			});
 
@@ -586,6 +709,10 @@
 			globalIndicatorElements.forEach((element, index) => {
 				if (index <= this.currentStep) {
 					element.classList.add('active-step');
+					if (index === this.currentStep) {
+						element.setAttribute('aria-selected', 'true');
+						element.setAttribute('tabindex', '0');
+					}
 				}
 			});
 
@@ -796,7 +923,7 @@
 
 		// Conditional fields methods
 		findConditionalFields() {
-			const conditionalElements = document.querySelectorAll(
+			const conditionalElements = this.getCachedElements(
 				'[data-bl-condition-field]'
 			);
 
@@ -857,13 +984,14 @@
 
 				fieldElements.forEach((element) => {
 					const eventType = this.getEventType(element);
-					element.addEventListener(eventType, () => {
+					const triggerHandler = () => {
 						this.evaluateAllConditions();
 						// Update navigation buttons when conditional fields change
 						if (this.form) {
 							this.updateNavigationButtons();
 						}
-					});
+					};
+					this.addEventListener(element, eventType, triggerHandler);
 				});
 			});
 
@@ -873,7 +1001,14 @@
 		}
 
 		getFieldElements(fieldName) {
-			return document.querySelectorAll(`[name="${fieldName}"]`);
+			// Cache field elements by name for performance
+			if (!this.fieldCache.has(fieldName)) {
+				this.fieldCache.set(
+					fieldName,
+					document.querySelectorAll(`[name="${fieldName}"]`)
+				);
+			}
+			return this.fieldCache.get(fieldName);
 		}
 
 		getEventType(element) {
@@ -991,6 +1126,9 @@
 			this.restoreRequiredFields(element);
 			element.classList.remove(this.options.hiddenClass);
 
+			// Accessibility: Remove aria-hidden when showing
+			element.removeAttribute('aria-hidden');
+
 			element.dispatchEvent(
 				new CustomEvent('bl:field:shown', {
 					detail: { element },
@@ -1006,6 +1144,9 @@
 			}
 
 			element.classList.add(this.options.hiddenClass);
+
+			// Accessibility: Add aria-hidden when hiding
+			element.setAttribute('aria-hidden', 'true');
 
 			element.dispatchEvent(
 				new CustomEvent('bl:field:hidden', {
@@ -1058,6 +1199,7 @@
 		// Public API methods
 		refresh() {
 			this.log('Manual refresh triggered');
+			this.clearElementCache(); // Clear cache before refresh
 			this.findConditionalFields();
 			this.findSteps();
 			this.findNavigationButtons();
@@ -1120,23 +1262,55 @@
 				},
 				customTranslations: Object.keys(this.customTranslations),
 				supportedLanguages: Object.keys(DEFAULT_TRANSLATIONS),
+				eventListenersCount: this.eventListeners.length,
+				cachedElements: this.elementCache.size,
+				cachedFields: this.fieldCache.size,
 			};
 		}
 
 		destroy() {
 			this.log('Destroying BL instance');
 
+			// Remove all tracked event listeners
+			this.eventListeners.forEach(({ element, event, handler, options }) => {
+				try {
+					element.removeEventListener(event, handler, options);
+				} catch (error) {
+					this.log('Error removing event listener:', error);
+				}
+			});
+			this.eventListeners = [];
+
+			// Disconnect mutation observer
 			if (this.observer) {
 				this.observer.disconnect();
 				this.observer = null;
 			}
 
+			// Clear all caches
+			this.elementCache.clear();
+			this.fieldCache.clear();
+
+			// Clear collections
 			this.conditionalFields.clear();
 			this.requiredFieldsMemory = new WeakMap();
-			this.initialized = false;
 
+			// Reset arrays
+			this.steps = [];
+			this.navigationButtons = { back: [], next: [], submit: [] };
+			this.stepIndicators = { progressive: [], single: [] };
+			this.stepIndicatorElements = [];
+
+			// Remove styles
 			const styles = document.getElementById('bl-styles');
 			if (styles) styles.remove();
+
+			// Reset state
+			this.initialized = false;
+			this.form = null;
+			this.currentStep = 0;
+
+			this.log('BL instance destroyed and cleaned up');
 		}
 
 		addConditionalField(element) {
@@ -1149,6 +1323,8 @@
 				isVisible: true,
 			});
 
+			// Clear cache since we're adding new elements
+			this.clearElementCache();
 			this.setupEventListeners();
 			this.evaluateAllConditions();
 			this.log('Conditional field added dynamically');
