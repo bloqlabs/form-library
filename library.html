@@ -314,7 +314,7 @@
 				// Accessibility improvements
 				step.setAttribute('role', 'tabpanel');
 				step.setAttribute('aria-labelledby', `bl-step-${index}-label`);
-				// Don't add tabindex to step containers - they shouldn't be focusable
+				step.setAttribute('tabindex', '-1');
 
 				// Add a visually hidden label for screen readers
 				if (!step.querySelector('.bl-step-label')) {
@@ -578,22 +578,25 @@
 			this.steps.forEach((step, index) => {
 				step.classList.remove('bl-step-active');
 				step.setAttribute('aria-hidden', 'true');
+				step.setAttribute('tabindex', '-1');
 			});
 
 			// Show current step with accessibility
 			if (this.steps[stepIndex]) {
 				this.steps[stepIndex].classList.add('bl-step-active');
 				this.steps[stepIndex].setAttribute('aria-hidden', 'false');
+				this.steps[stepIndex].setAttribute('tabindex', '0');
 
-				// Focus management for accessibility - prioritize form inputs
+				// Focus management for accessibility
 				setTimeout(() => {
-					const firstFormElement = this.steps[stepIndex].querySelector(
-						'input:not([type="hidden"]), select, textarea'
+					const firstFocusableElement = this.steps[stepIndex].querySelector(
+						'input, select, textarea, button, [tabindex]:not([tabindex="-1"])'
 					);
-					if (firstFormElement) {
-						firstFormElement.focus();
+					if (firstFocusableElement) {
+						firstFocusableElement.focus();
+					} else {
+						this.steps[stepIndex].focus();
 					}
-					// Don't focus the step container itself - let natural tab order work
 				}, 100);
 			}
 
