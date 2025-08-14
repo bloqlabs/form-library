@@ -1215,7 +1215,10 @@
 			this.findSteps();
 
 			if (this.formType === 'multistep') {
-				this.showStep(Math.min(this.currentStep, this.steps.length - 1));
+				const bounded = Math.min(this.currentStep, this.steps.length - 1);
+				if (bounded !== this.currentStep) {
+					this.showStep(bounded); // only if index actually changed
+				}
 			}
 
 			this.findNavigationButtons();
