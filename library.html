@@ -516,21 +516,25 @@
 			}
 
 			// Submit button events
-			const submitHandler = (e) => {
-				const config = this.getFormConfiguration(); // re-read each time
-				this.log('Submit triggered');
+			this.navigationButtons.submit.forEach((button) => {
+				const submitHandler = (e) => {
+					const config = this.getFormConfiguration(); // re-read each time
+					this.log('Submit triggered');
 
-				if (!this.validateCurrentStep()) {
-					e.preventDefault();
-					if (
-						config.validationMode === 'permissive' &&
-						config.showInlineErrors
-					) {
-						this.showFieldErrors(this.steps[this.currentStep]);
+					if (!this.validateCurrentStep()) {
+						e.preventDefault();
+						this.log('Final step validation failed');
+						if (
+							config.validationMode === 'permissive' &&
+							config.showInlineErrors
+						) {
+							this.log('Showing errors');
+							this.showFieldErrors(this.steps[this.currentStep]);
+						}
 					}
-				}
-			};
-			if (this.form) this.addEventListener(this.form, 'submit', submitHandler);
+				};
+				this.addEventListener(button, 'click', submitHandler);
+			});
 
 			// Validation on input/change
 			if (this.options.validateOnInput && this.form) {
