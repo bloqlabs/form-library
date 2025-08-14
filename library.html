@@ -299,7 +299,7 @@
 
 		findSteps() {
 			if (this.formType === 'form') {
-				this.steps = [this.form];
+				this.steps = [this.form.querySelector('form')];
 				return;
 			}
 
