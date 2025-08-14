@@ -1,8 +1,8 @@
 <script>
 	/**
 	 * BL (BloqLabs) Form Logic Library
-	 * Conditional Fields & Multi-Step Forms Implementation
-	 * Version 0.1.0
+	 * Conditional Fields, Validation & Multi-Step Forms Implementation
+	 * Version 0.2.0
 	 */
 
 	// Built-in translations for common languages
@@ -164,8 +164,8 @@
 				// Add CSS for hidden fields and multi-step forms
 				this.addStyles();
 
-				// Initialize multi-step functionality
-				this.initMultiStepForm();
+				// Initialize form functionality
+				this.initForm();
 
 				// Find all conditional fields
 				this.findConditionalFields();
@@ -275,12 +275,16 @@
 		}
 
 		// Multi-step form initialization
-		initMultiStepForm() {
-			this.form = this.getCachedElement('[data-bl-form-element="multistep"]');
+		initForm() {
+			this.form = this.getCachedElement(
+				'[data-bl-form-element="multistep"], [data-bl-form-element="form"]'
+			);
 			if (!this.form) {
 				this.log('No multi-step form found');
 				return;
 			}
+
+			this.formType = this.form.getAttribute('data-bl-form-element');
 
 			// Accessibility: Add form role and aria-label
 			this.form.setAttribute('role', 'form');
@@ -297,6 +301,11 @@
 		}
 
 		findSteps() {
+			if (this.formType === 'form') {
+				this.steps = [this.form];
+				return;
+			}
+
 			this.steps = Array.from(
 				this.getCachedElements('[data-bl-form-element="step"]')
 			);
@@ -328,6 +337,10 @@
 		}
 
 		findStepIndicators() {
+			if (this.formType !== 'multistep') {
+				return;
+			}
+
 			// Find progressive indicators (show all steps up to current)
 			this.stepIndicators.progressive = Array.from(
 				this.getCachedElements('[data-bl-form-element="step-indicator"]')
@@ -465,44 +478,46 @@
 			// Read form configuration including validation mode
 			const config = this.getFormConfiguration();
 
-			// Back button events
-			this.navigationButtons.back.forEach((button) => {
-				const backHandler = (e) => {
-					e.preventDefault();
-					this.log('Back button clicked');
-					this.goToPreviousStep();
-				};
-				this.addEventListener(button, 'click', backHandler);
-			});
+			if (this.formType === 'multistep') {
+				// Back button events
+				this.navigationButtons.back.forEach((button) => {
+					const backHandler = (e) => {
+						e.preventDefault();
+						this.log('Back button clicked');
+						this.goToPreviousStep();
+					};
+					this.addEventListener(button, 'click', backHandler);
+				});
 
-			// Next button events
-			this.navigationButtons.next.forEach((button) => {
-				const nextHandler = (e) => {
-					e.preventDefault();
-					this.log('Next button clicked');
+				// Next button events
+				this.navigationButtons.next.forEach((button) => {
+					const nextHandler = (e) => {
+						e.preventDefault();
+						this.log('Next button clicked');
 
-					if (config.validationMode === 'permissive') {
-						// Permissive mode: always validate, show errors, navigate only if valid
-						if (this.validateCurrentStep()) {
-							this.clearFieldErrors(this.steps[this.currentStep]);
-							this.goToNextStep();
+						if (config.validationMode === 'permissive') {
+							// Permissive mode: always validate, show errors, navigate only if valid
+							if (this.validateCurrentStep()) {
+								this.clearFieldErrors(this.steps[this.currentStep]);
+								this.goToNextStep();
+							} else {
+								this.log('Current step validation failed - showing errors');
+								if (config.showInlineErrors) {
+									this.showFieldErrors(this.steps[this.currentStep]);
+								}
+							}
 						} else {
-							this.log('Current step validation failed - showing errors');
-							if (config.showInlineErrors) {
-								this.showFieldErrors(this.steps[this.currentStep]);
+							// Strict mode: validate and navigate only if valid (original behavior)
+							if (this.validateCurrentStep()) {
+								this.goToNextStep();
+							} else {
+								this.log('Current step validation failed');
 							}
 						}
-					} else {
-						// Strict mode: validate and navigate only if valid (original behavior)
-						if (this.validateCurrentStep()) {
-							this.goToNextStep();
-						} else {
-							this.log('Current step validation failed');
-						}
-					}
-				};
-				this.addEventListener(button, 'click', nextHandler);
-			});
+					};
+					this.addEventListener(button, 'click', nextHandler);
+				});
+			}
 
 			// Submit button events
 			this.navigationButtons.submit.forEach((button) => {
@@ -564,6 +579,12 @@
 		}
 
 		showStep(stepIndex) {
+			if (this.formType === 'form') {
+				this.currentStep = 0;
+				this.updateNavigationButtons();
+				return;
+			}
+
 			if (stepIndex < 0 || stepIndex >= this.steps.length) {
 				this.log(`Invalid step index: ${stepIndex}`);
 				return;
@@ -1245,6 +1266,7 @@
 				version: BL.version,
 				initialized: this.initialized,
 				language: this.getLanguage(),
+				formType: this.formType,
 				validationMode: config.validationMode,
 				conditionalFields: this.conditionalFields.size,
 				steps: this.steps.length,
