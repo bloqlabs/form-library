@@ -1399,11 +1399,9 @@
 			if (fieldMessage) return this.interpolateMessage(fieldMessage, params);
 
 			// 2. Form-level custom translations
-			if (this.customTranslations[errorType]) {
-				return this.interpolateMessage(
-					this.customTranslations[errorType],
-					params
-				);
+			const formLevel = this.customTranslations[language]?.[errorType];
+			if (formLevel) {
+				return this.interpolateMessage(formLevel, params);
 			}
 
 			// 3. Built-in translations for current language
