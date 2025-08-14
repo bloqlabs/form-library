@@ -1,6 +1,6 @@
 # BL Form Logic Library Documentation
 
-**Version 0.1.0** | For Webflow Developers
+**Version 0.2.0** | For Webflow Developers
 
 A powerful JavaScript library that adds conditional logic, multi-step navigation, and advanced validation to your Webflow forms without any coding required.
 
@@ -94,6 +94,8 @@ Create three button elements and add these attributes:
 	data-bl-validation-mode="permissive"
 	data-bl-error-class="my-custom-error"></form>
 ```
+
+**Note:** You can use either `data-bl-form-element="multistep"` or `data-bl-form-element="form"` - both work the same way.
 
 #### Error Messages in Permissive Mode
 
@@ -254,6 +256,8 @@ The library automatically detects language in this order:
 	data-bl-language="es"></form>
 ```
 
+**Note:** You can use `data-bl-form-element="form"` instead of `"multistep"` - both work identically.
+
 **Option 2: Set on HTML element**
 
 ```html
@@ -299,6 +303,8 @@ For dynamic multi-language sites using Webflow CMS:
 		data-bl-error-message='{{wf {"path":"email-error-text"} }}' />
 </form>
 ```
+
+**Note:** You can use `data-bl-form-element="form"` instead of `"multistep"` - both are equivalent.
 
 #### Built-in Error Messages
 
@@ -590,7 +596,7 @@ Then check your browser's Console (F12) for helpful information.
 **Before Publishing:**
 
 - [ ] Script added to Project Settings > Custom Code > Footer Code
-- [ ] Form has `data-bl-form-element="multistep"` (for multi-step)
+- [ ] Form has `data-bl-form-element="multistep"` or `data-bl-form-element="form"`
 - [ ] Each step div has `data-bl-form-element="step"`
 - [ ] Navigation buttons have correct attributes
 - [ ] Conditional elements have `data-bl-condition-field` and `data-bl-condition-value`
