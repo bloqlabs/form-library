@@ -1,6 +1,6 @@
 # BL Form Logic Library Documentation
 
-**Version 0.2.0** | For Webflow Developers
+**Version 0.2.1** | For Webflow Developers
 
 A powerful JavaScript library that adds conditional logic, multi-step navigation, and advanced validation to your Webflow forms without any coding required.
 
@@ -213,6 +213,7 @@ The library automatically validates:
 - **Number fields** with min/max values
 - **Text fields** with character limits
 - **Custom patterns** (add `pattern` attribute)
+- **Email domain blocking** (block specific email domains)
 
 #### Setting Up Validation
 
@@ -223,6 +224,44 @@ The library automatically validates:
 5. **For custom patterns**: Add custom attribute `pattern` with your regex
 
 **The library handles the rest automatically!**
+
+#### Email Domain Blocking
+
+Block email addresses from specific domains (e.g., prevent personal emails in business forms).
+
+**Setup:**
+
+Add the `data-bl-blocked-domains` attribute to either:
+- **Individual email field** (applies to that field only)
+- **Form element** (applies to all email fields in the form)
+
+**Examples:**
+
+```html
+<!-- Block specific domains -->
+<input 
+  type="email" 
+  name="business_email"
+  data-bl-blocked-domains="gmail.com,yahoo.com,hotmail.com">
+
+<!-- Use default blocked domains (gmail.com, msn.com, gmx.com) -->
+<input 
+  type="email" 
+  name="work_email"
+  data-bl-blocked-domains="">
+
+<!-- Apply to entire form -->
+<form 
+  data-bl-form-element="multistep"
+  data-bl-blocked-domains="gmail.com,outlook.com">
+```
+
+**How it works:**
+- Validates email domain on blur and during form submission
+- Shows localized error messages (supports all 5 languages)
+- Field-level attribute overrides form-level setting
+- Empty attribute (`data-bl-blocked-domains=""`) uses default blocked domains
+- Comma-separated list for multiple domains
 
 ### 5. Multi-Language Support
 
@@ -310,11 +349,12 @@ For dynamic multi-language sites using Webflow CMS:
 
 The library includes professional translations for all validation errors:
 
-| Error Type | English                             | Spanish                      | French                             |
-| :--------- | :---------------------------------- | :--------------------------- | :--------------------------------- |
-| Required   | "This field is required"            | "Este campo es obligatorio"  | "Ce champ est obligatoire"         |
-| Email      | "Please enter a valid email"        | "Ingrese un email válido"    | "Veuillez saisir un email valide"  |
-| Phone      | "Please enter a valid phone number" | "Ingrese un teléfono válido" | "Veuillez saisir un numéro valide" |
+| Error Type     | English                                  | Spanish                                | French                                    |
+| :------------- | :--------------------------------------- | :------------------------------------- | :---------------------------------------- |
+| Required       | "This field is required"                 | "Este campo es obligatorio"           | "Ce champ est obligatoire"               |
+| Email          | "Please enter a valid email"             | "Ingrese un email válido"             | "Veuillez saisir un email valide"        |
+| Phone          | "Please enter a valid phone number"      | "Ingrese un teléfono válido"          | "Veuillez saisir un numéro valide"       |
+| Blocked Domain | "Email from this domain is not allowed"  | "No se permite email de este dominio" | "Email de ce domaine n'est pas autorisé" |
 
 _All 5 languages have complete translation sets for every error type._
 
