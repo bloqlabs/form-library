@@ -41,7 +41,7 @@
 		fr: {
 			required: 'Ce champ est obligatoire',
 			email: 'Veuillez saisir une adresse email valide',
-			blockedDomain: 'Ce domaine email n\'est pas autorisé',
+			blockedDomain: "Ce domaine email n'est pas autorisé",
 			url: 'Veuillez saisir une URL valide',
 			tel: 'Veuillez saisir un numéro de téléphone valide',
 			number: 'Veuillez saisir un nombre valide',
@@ -744,12 +744,12 @@
 		isEmailDomainBlocked(field, domain) {
 			// Check field-level attribute first
 			let blockedDomains = field.getAttribute('data-bl-blocked-domains');
-			
-			// Fall back to form-level attribute
-			if (!blockedDomains && this.form) {
+
+			// Fall back to form-level attribute only if field doesn't have the attribute
+			if (blockedDomains === null && this.form) {
 				blockedDomains = this.form.getAttribute('data-bl-blocked-domains');
 			}
-			
+
 			// Parse domains or use defaults
 			let domainList;
 			if (blockedDomains === null) {
@@ -760,9 +760,11 @@
 				domainList = DEFAULT_BLOCKED_DOMAINS;
 			} else {
 				// Parse comma-separated list
-				domainList = blockedDomains.split(',').map(d => d.trim().toLowerCase());
+				domainList = blockedDomains
+					.split(',')
+					.map((d) => d.trim().toLowerCase());
 			}
-			
+
 			return domainList.includes(domain);
 		}
 
