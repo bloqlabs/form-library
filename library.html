@@ -2,14 +2,18 @@
 	/**
 	 * BL (BloqLabs) Form Logic Library
 	 * Conditional Fields, Validation & Multi-Step Forms Implementation
-	 * Version 0.2.0
+	 * Version 0.2.1
 	 */
+
+	// Default blocked domains
+	const DEFAULT_BLOCKED_DOMAINS = ['gmail.com', 'msn.com', 'gmx.com'];
 
 	// Built-in translations for common languages
 	const DEFAULT_TRANSLATIONS = {
 		en: {
 			required: 'This field is required',
 			email: 'Please enter a valid email address',
+			blockedDomain: 'This email domain is not allowed',
 			url: 'Please enter a valid URL',
 			tel: 'Please enter a valid phone number',
 			number: 'Please enter a valid number',
@@ -23,6 +27,7 @@
 		es: {
 			required: 'Este campo es obligatorio',
 			email: 'Ingrese una dirección de email válida',
+			blockedDomain: 'Este dominio de email no está permitido',
 			url: 'Ingrese una URL válida',
 			tel: 'Ingrese un número de teléfono válido',
 			number: 'Ingrese un número válido',
@@ -36,6 +41,7 @@
 		fr: {
 			required: 'Ce champ est obligatoire',
 			email: 'Veuillez saisir une adresse email valide',
+			blockedDomain: 'Ce domaine email n\'est pas autorisé',
 			url: 'Veuillez saisir une URL valide',
 			tel: 'Veuillez saisir un numéro de téléphone valide',
 			number: 'Veuillez saisir un nombre valide',
@@ -49,6 +55,7 @@
 		it: {
 			required: 'Questo campo è obbligatorio',
 			email: 'Inserisci un indirizzo email valido',
+			blockedDomain: 'Questo dominio email non è consentito',
 			url: 'Inserisci un URL valido',
 			tel: 'Inserisci un numero di telefono valido',
 			number: 'Inserisci un numero valido',
@@ -62,6 +69,7 @@
 		de: {
 			required: 'Dieses Feld ist erforderlich',
 			email: 'Bitte geben Sie eine gültige E-Mail-Adresse ein',
+			blockedDomain: 'Diese E-Mail-Domain ist nicht zulässig',
 			url: 'Bitte geben Sie eine gültige URL ein',
 			tel: 'Bitte geben Sie eine gültige Telefonnummer ein',
 			number: 'Bitte geben Sie eine gültige Zahl ein',
@@ -75,7 +83,7 @@
 	};
 
 	class BL {
-		static version = '0.2.0';
+		static version = '0.2.1';
 
 		constructor(options = {}) {
 			this.options = {
@@ -733,6 +741,31 @@
 			return validation.isValid;
 		}
 
+		isEmailDomainBlocked(field, domain) {
+			// Check field-level attribute first
+			let blockedDomains = field.getAttribute('data-bl-blocked-domains');
+			
+			// Fall back to form-level attribute
+			if (!blockedDomains && this.form) {
+				blockedDomains = this.form.getAttribute('data-bl-blocked-domains');
+			}
+			
+			// Parse domains or use defaults
+			let domainList;
+			if (blockedDomains === null) {
+				// No attribute found, no blocking
+				return false;
+			} else if (blockedDomains === '') {
+				// Empty attribute, use defaults
+				domainList = DEFAULT_BLOCKED_DOMAINS;
+			} else {
+				// Parse comma-separated list
+				domainList = blockedDomains.split(',').map(d => d.trim().toLowerCase());
+			}
+			
+			return domainList.includes(domain);
+		}
+
 		validateFieldWithDetails(field) {
 			try {
 				const value = field.value.trim();
@@ -765,6 +798,12 @@
 						const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 						if (!emailRegex.test(value)) {
 							return { isValid: false, errorType: 'email' };
+						}
+
+						// Check for blocked domains
+						const domain = value.split('@')[1]?.toLowerCase();
+						if (domain && this.isEmailDomainBlocked(field, domain)) {
+							return { isValid: false, errorType: 'blockedDomain' };
 						}
 						break;
 
