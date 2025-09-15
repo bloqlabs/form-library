@@ -2,23 +2,8 @@
 	/**
 	 * BL (BloqLabs) Form Logic Library
 	 * Conditional Fields, Validation & Multi-Step Forms Implementation
-	 * Version 0.2.12
+	 * Version 0.2.3
 	 */
-
-	// Default blocked domains
-	const DEFAULT_BLOCKED_DOMAINS = [
-		'gmail.com',
-		'msn.com',
-		'gmx.com',
-		'gmx.ch',
-		'hotmail.com',
-		'hotmail.ch',
-		'icloud.com',
-		'yahoo.com',
-		'bluewin.ch',
-		'outlook.com',
-		'outlook.ch',
-	];
 
 	// Built-in translations for common languages
 	const DEFAULT_TRANSLATIONS = {
@@ -115,6 +100,7 @@
 			this.requiredFieldsMemory = new WeakMap();
 			this.customTranslations = {};
 			this.initialized = false;
+			this.blockedDomains = []; // Will be updated from CDN
 
 			// Performance caching
 			this.elementCache = new Map();
@@ -142,7 +128,39 @@
 			this.observer = null;
 
 			this.log('BL Library v' + BL.version + ' initializing...');
+			this.fetchDefaultBlockedDomains(); // Fetch domains from CDN
 			this.init();
+		}
+
+		async fetchDefaultBlockedDomains() {
+			try {
+				this.log('Fetching blocked domains from CDN...');
+				// Original list from: https://github.com/Kikobeats/free-email-domains/blob/master/domains.json
+				const response = await fetch(
+					'https://cdn.jsdelivr.net/gh/bloqlabs/form-library@main/domains.json'
+				);
+
+				if (!response.ok) {
+					throw new Error(`HTTP error! status: ${response.status}`);
+				}
+
+				const domains = await response.json();
+
+				if (Array.isArray(domains) && domains.length > 0) {
+					this.blockedDomains = domains;
+					this.log(
+						`Successfully loaded ${domains.length} blocked domains from CDN`
+					);
+				} else {
+					throw new Error('Invalid or empty domains data received');
+				}
+			} catch (error) {
+				this.log(
+					'Failed to fetch blocked domains from CDN, no domains will be blocked:',
+					error.message
+				);
+				// this.blockedDomains remains empty array if fetch fails
+			}
 		}
 
 		log(...args) {
@@ -768,8 +786,8 @@
 				// No attribute found, no blocking
 				return false;
 			} else if (blockedDomains === '') {
-				// Empty attribute, use defaults
-				domainList = DEFAULT_BLOCKED_DOMAINS;
+				// Empty attribute, use fetched defaults or fallback
+				domainList = this.blockedDomains;
 			} else {
 				// Parse comma-separated list
 				domainList = blockedDomains
@@ -1285,6 +1303,12 @@
 			this.updateStepIndicators();
 		}
 
+		// Manually refresh blocked domains from CDN
+		async refreshBlockedDomains() {
+			this.log('Manual blocked domains refresh triggered');
+			await this.fetchDefaultBlockedDomains();
+		}
+
 		// Multi-step public API
 		goToStep(stepIndex) {
 			this.log(`Manual navigation to step ${stepIndex + 1}`);
@@ -1342,6 +1366,8 @@
 				eventListenersCount: this.eventListeners.length,
 				cachedElements: this.elementCache.size,
 				cachedFields: this.fieldCache.size,
+				blockedDomainsCount: this.blockedDomains.length,
+				domainsLoadedFromCDN: this.blockedDomains.length > 0,
 			};
 		}
 
