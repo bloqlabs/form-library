@@ -2,7 +2,7 @@
 	/**
 	 * BL (BloqLabs) Form Logic Library
 	 * Conditional Fields, Validation & Multi-Step Forms Implementation
-	 * Version 0.2.3
+	 * Version 0.2.4
 	 */
 
 	// Built-in translations for common languages
@@ -20,6 +20,8 @@
 			min: 'Must be at least {min}',
 			max: 'Must be no more than {max}',
 			pattern: 'Please match the required format',
+			fileType: 'Please upload a file of type: {types}',
+			fileSize: 'File must be smaller than {max} KB',
 		},
 		es: {
 			required: 'Este campo es obligatorio',
@@ -34,6 +36,8 @@
 			min: 'Debe ser al menos {min}',
 			max: 'No debe ser más de {max}',
 			pattern: 'Por favor use el formato requerido',
+			fileType: 'Cargue un archivo de tipo: {types}',
+			fileSize: 'El archivo debe ser menor a {max} KB',
 		},
 		fr: {
 			required: 'Ce champ est obligatoire',
@@ -48,6 +52,8 @@
 			min: 'Doit être au moins {min}',
 			max: 'Ne doit pas dépasser {max}',
 			pattern: 'Veuillez respecter le format requis',
+			fileType: 'Veuillez téléverser un fichier de type : {types}',
+			fileSize: 'Le fichier doit être inférieur à {max} KB',
 		},
 		it: {
 			required: 'Questo campo è obbligatorio',
@@ -62,6 +68,8 @@
 			min: 'Deve essere almeno {min}',
 			max: 'Non deve superare {max}',
 			pattern: 'Si prega di rispettare il formato richiesto',
+			fileType: 'Carica un file di tipo: {types}',
+			fileSize: 'Il file deve essere inferiore a {max} KB',
 		},
 		de: {
 			required: 'Dieses Feld ist erforderlich',
@@ -76,11 +84,13 @@
 			min: 'Muss mindestens {min} sein',
 			max: 'Darf höchstens {max} sein',
 			pattern: 'Bitte verwenden Sie das erforderliche Format',
+			fileType: 'Bitte laden Sie eine Datei des Typs {types} hoch',
+			fileSize: 'Die Datei muss kleiner als {max} KB sein',
 		},
 	};
 
 	class BL {
-		static version = '0.2.1';
+		static version = '0.2.4';
 
 		constructor(options = {}) {
 			this.options = {
@@ -800,9 +810,18 @@
 
 		validateFieldWithDetails(field) {
 			try {
-				const value = field.value.trim();
 				const type = field.type ? field.type.toLowerCase() : undefined;
+				let value = '';
+
+				if (typeof field.value === 'string') {
+					value = field.value.trim();
+				}
+
+				if (type === 'file') {
+					value = '';
+				}
 				const required = field.hasAttribute('required');
+				const files = type === 'file' ? Array.from(field.files || []) : [];
 
 				// Required field validation
 				if (required) {
@@ -814,18 +833,69 @@
 						if (checkedFields.length === 0) {
 							return { isValid: false, errorType: 'required' };
 						}
+					} else if (type === 'file') {
+						if (files.length === 0) {
+							return { isValid: false, errorType: 'required' };
+						}
 					} else if (!value) {
 						return { isValid: false, errorType: 'required' };
 					}
 				}
 
 				// Skip further validation if field is empty and not required
-				if (!value && !required) {
+				if (type === 'file') {
+					if (files.length === 0 && !required) {
+						return { isValid: true };
+					}
+				} else if (!value && !required) {
 					return { isValid: true };
 				}
 
 				// Type-specific validation
 				switch (type) {
+					case 'file':
+						if (files.length === 0) {
+							return { isValid: true };
+						}
+
+						const acceptAttr = field.getAttribute('accept');
+						const acceptedTypes = this.parseAcceptedFileTypes(acceptAttr);
+
+						if (
+							acceptedTypes.length > 0 &&
+							!files.every((file) =>
+								this.isFileTypeAccepted(file, acceptedTypes)
+							)
+						) {
+							return {
+								isValid: false,
+								errorType: 'fileType',
+								params: {
+									types: this.formatAcceptedFileTypes(acceptedTypes),
+								},
+							};
+						}
+
+						const maxFileSizeAttr = field.getAttribute('data-bl-max-file-size');
+						if (maxFileSizeAttr !== null) {
+							const maxFileSizeKB = parseInt(maxFileSizeAttr, 10);
+							if (!Number.isNaN(maxFileSizeKB) && maxFileSizeKB > 0) {
+								const maxBytes = maxFileSizeKB * 1024;
+								const hasOversizedFile = files.some(
+									(file) => file.size > maxBytes
+								);
+
+								if (hasOversizedFile) {
+									return {
+										isValid: false,
+										errorType: 'fileSize',
+										params: { max: maxFileSizeKB },
+									};
+								}
+							}
+						}
+
+						break;
 					case 'email':
 						const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 						if (!emailRegex.test(value)) {
@@ -923,6 +993,82 @@
 				this.log('Field validation error:', error);
 				return { isValid: false, errorType: 'unknown' };
 			}
+		}
+
+		parseAcceptedFileTypes(acceptAttr) {
+			if (!acceptAttr) return [];
+			return acceptAttr
+				.split(',')
+				.map((item) => item.trim())
+				.filter((item) => item.length > 0);
+		}
+
+		isFileTypeAccepted(file, acceptedTypes) {
+			if (acceptedTypes.length === 0) return true;
+			const fileName = file.name?.toLowerCase() || '';
+			const fileType = file.type?.toLowerCase() || '';
+			const fileExtension = fileName.includes('.')
+				? `.${fileName.split('.').pop()}`
+				: '';
+
+			return acceptedTypes.some((accepted) => {
+				const normalized = accepted.toLowerCase();
+
+				if (normalized === '*/*') {
+					return true;
+				}
+
+				if (normalized.endsWith('/*')) {
+					const mimeGroup = normalized.replace('/*', '');
+					return fileType.startsWith(`${mimeGroup}/`);
+				}
+
+				if (normalized.startsWith('.')) {
+					return fileExtension === normalized;
+				}
+
+				if (normalized.includes('/')) {
+					if (fileType === normalized) {
+						return true;
+					}
+
+					if (!fileType && fileExtension) {
+						return this.mimeMatchesExtension(normalized, fileExtension);
+					}
+
+					return false;
+				}
+
+				return fileType === normalized;
+			});
+		}
+
+		mimeMatchesExtension(mimeType, extension) {
+			const subtype = mimeType.split('/')[1];
+			if (!subtype || !extension) return false;
+
+			const normalizedExtension = extension.replace('.', '').toLowerCase();
+			const normalizedSubtype = subtype.toLowerCase();
+
+			if (normalizedExtension === normalizedSubtype) {
+				return true;
+			}
+
+			const aliasMap = {
+				jpeg: ['jpg', 'jpeg'],
+				tiff: ['tif', 'tiff'],
+			};
+
+			if (aliasMap[normalizedSubtype]) {
+				return aliasMap[normalizedSubtype].includes(normalizedExtension);
+			}
+
+			return false;
+		}
+
+		formatAcceptedFileTypes(acceptedTypes) {
+			if (acceptedTypes.length === 0) return '';
+			return acceptedTypes.join(', ');
 		}
 
 		updateNavigationButtons() {

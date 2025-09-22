@@ -120,6 +120,12 @@ Override default messages per field:
 	data-bl-error-message="Please enter your email address" />
 ```
 
+#### File Upload Validation
+
+- Use the native `accept` attribute on your file input to restrict the allowed file types. The BL library double-checks that the uploaded file matches the accepted extensions or MIME types.
+- Add the attribute `data-bl-max-file-size` to set a per-field upload limit (value in kilobytes). Example: `data-bl-max-file-size="10240"` restricts uploads to 10 MB.
+- Users receive inline errors when a file is larger than allowed or does not match the accepted formats.
+
 ### 2. Step Indicators
 
 Visual progress indicators that automatically match your form steps.
